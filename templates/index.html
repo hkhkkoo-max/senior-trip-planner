@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>어르신 맞춤 당일치기 여행 도우미</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 헤더 -->
+        <header class="header">
+            <h1 class="title">🚗 어르신 당일치기 여행 도우미</h1>
+            <p class="subtitle">분당 출발 기준 · 간단한 질문으로 맞춤 일정을 짜드립니다</p>
+        </header>
+
+        <!-- 진행 상황 바 -->
+        <div class="progress-container" id="progressContainer" style="display: none;">
+            <div class="progress-bar" id="progressBar"></div>
+            <span class="progress-text" id="progressText">1단계 / 5단계</span>
+        </div>
+
+        <!-- 메인 카운터/마법사 컨테이너 -->
+        <main class="wizard-card">
+
+            <!-- [STEP 0] 비밀번호 게이트 -->
+            <section class="step-section active" id="step0">
+                <div class="step-header">
+                    <span class="badge">접속 확인</span>
+                    <h2>비밀번호를 입력해 주세요</h2>
+                    <p class="step-desc">일정 생성을 위해 전달받으신 4자리 암호를 입력해 주세요.</p>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="inputPassword" class="input-large text-center" placeholder="비밀번호 4자리" maxlength="10" inputmode="numeric">
+                </div>
+                <div class="error-msg" id="passwordError"></div>
+                <button class="btn btn-primary btn-block btn-lg" onclick="checkPassword()">비밀번호 확인 ➔</button>
+            </section>
+
+            <!-- [STEP 1] 목적지 선택 -->
+            <section class="step-section" id="step1">
+                <div class="step-header text-center">
+                    <span class="badge">1단계</span>
+                    <h2>어디로 떠나고 싶으신가요?</h2>
+                    <p class="step-desc">원하시는 지역(예: 의정부, 가평)을 직접 입력하시거나 '알아서 추천'을 눌러주세요.</p>
+                </div>
+
+                <div class="option-grid single-btn-grid mb-4" style="display: flex; justify-content: center; margin-bottom: 20px;">
+                    <button class="option-btn active" onclick="selectDestination('추천', this)" style="max-width: 420px; width: 100%; text-align: center; padding: 20px;">
+                        <span class="icon" style="font-size: 2.2rem; display: block; margin-bottom: 8px;">✨</span>
+                        <span class="label" style="font-size: 1.4rem;">알아서 추천</span>
+                        <span class="sub" style="display: block; margin-top: 4px;">분당 출발 어르신 선호도 1위 명소로 추천</span>
+                    </button>
+                </div>
+
+                <div class="form-group mt-4 text-center" style="max-width: 420px; margin: 0 auto 24px auto;">
+                    <label for="customDest" class="input-label" style="font-weight: 700; font-size: 1.1rem; display: block; margin-bottom: 8px; color: #2c3e50;">
+                        📍 원하는 지역 입력 (선택사항):
+                    </label>
+                    <input type="text" id="customDest" class="input-large" placeholder="예: 의정부, 과천, 의왕, 용산, 안양, 가평, 양평" oninput="onCustomDestInput(this)" onkeyup="if(event.key==='Enter') nextStep(2);" style="width: 100%; text-align: center; font-size: 1.15rem; padding: 14px; border-radius: 12px; border: 2px solid #cbd5e1;">
+                    <p class="sub-text mt-2" style="font-size: 0.9rem; color: #64748b; margin-top: 8px; line-height: 1.4;">
+                        * 지역을 입력하지 않고 빈칸으로 두시면 경기도 추천 명소 중 알아서 자동 추천됩니다.
+                    </p>
+                </div>
+
+                <div class="step-actions flex-between mt-4">
+                    <div></div>
+                    <button class="btn btn-primary btn-lg" onclick="nextStep(2)">다음 질문 ➔</button>
+                </div>
+            </section>
+
+            <!-- [STEP 2] 음식 종류(한식/양식/일식/중식) 선택 -->
+            <section class="step-section" id="step2">
+                <div class="step-header">
+                    <span class="badge">2단계</span>
+                    <h2>점심으로 어떤 음식(종류)이 당기시나요?</h2>
+                    <p class="step-desc">원하시는 메뉴 스타일을 선택해 주세요.</p>
+                </div>
+
+                <div class="option-grid columns-2">
+                    <button class="option-btn active" onclick="selectCuisine('한식', this)">
+                        <span class="icon">🍚</span>
+                        <span class="label">한식</span>
+                        <span class="sub">한정식, 불고기, 솥밥, 백숙</span>
+                    </button>
+                    <button class="option-btn" onclick="selectCuisine('양식', this)">
+                        <span class="icon">🍝</span>
+                        <span class="label">양식</span>
+                        <span class="sub">파스타, 스테이크, 브런치</span>
+                    </button>
+                    <button class="option-btn" onclick="selectCuisine('일식', this)">
+                        <span class="icon">🍣</span>
+                        <span class="label">일식</span>
+                        <span class="sub">초밥, 돈가스, 우동, 덮밥</span>
+                    </button>
+                    <button class="option-btn" onclick="selectCuisine('중식', this)">
+                        <span class="icon">🥟</span>
+                        <span class="label">중식</span>
+                        <span class="sub">짜장/짬뽕, 탕수육, 딤섬</span>
+                    </button>
+                </div>
+
+                <div class="step-actions flex-between">
+                    <button class="btn btn-secondary btn-lg" onclick="prevStep(1)">⬅️ 이전</button>
+                    <button class="btn btn-primary btn-lg" onclick="nextStep(3)">다음 질문 ➔</button>
+                </div>
+            </section>
+
+            <!-- [STEP 3] 1인당 점심 예산 선택 -->
+            <section class="step-section" id="step3">
+                <div class="step-header">
+                    <span class="badge">3단계</span>
+                    <h2>점심 식사 1인당 예산은 얼마로 할까요?</h2>
+                    <p class="step-desc">선택하신 예산대에 맞춰 최적의 식당을 추천해 드립니다.</p>
+                </div>
+
+                <div class="option-grid columns-3">
+                    <button class="option-btn active" onclick="selectBudget(10000, this)">
+                        <span class="icon">🍱</span>
+                        <span class="label">1만원대</span>
+                        <span class="sub">실속 있고 부담 없는 가성비 식사</span>
+                    </button>
+                    <button class="option-btn" onclick="selectBudget(20000, this)">
+                        <span class="icon">🍲</span>
+                        <span class="label">2만원대</span>
+                        <span class="sub">정갈하고 풍성한 식사</span>
+                    </button>
+                    <button class="option-btn" onclick="selectBudget(30000, this)">
+                        <span class="icon">🥩</span>
+                        <span class="label">3만원대</span>
+                        <span class="sub">고급 보양식 및 특선 식사</span>
+                    </button>
+                </div>
+
+                <div class="step-actions flex-between">
+                    <button class="btn btn-secondary btn-lg" onclick="prevStep(2)">⬅️ 이전</button>
+                    <button class="btn btn-primary btn-lg" onclick="nextStep(4)">다음 질문 ➔</button>
+                </div>
+            </section>
+
+            <!-- [STEP 4] 관심사 선택 -->
+            <section class="step-section" id="step4">
+                <div class="step-header">
+                    <span class="badge">4단계</span>
+                    <h2>어떤 구경이나 활동을 좋아하시나요?</h2>
+                    <p class="step-desc">좋아하시는 것을 여러 개 눌러주세요.</p>
+                </div>
+
+                <div class="checkbox-grid">
+                    <label class="check-card">
+                        <input type="checkbox" value="자연/둘레길" onchange="toggleInterest(this)">
+                        <span class="icon">🌲</span>
+                        <span class="label">자연 & 둘레길</span>
+                    </label>
+                    <label class="check-card">
+                        <input type="checkbox" value="사찰/문화유적" onchange="toggleInterest(this)">
+                        <span class="icon">⛩️</span>
+                        <span class="label">사찰 & 유적지</span>
+                    </label>
+                    <label class="check-card">
+                        <input type="checkbox" value="온천/족욕휴양" onchange="toggleInterest(this)">
+                        <span class="icon">♨️</span>
+                        <span class="label">온천 & 족욕휴양</span>
+                    </label>
+                    <label class="check-card">
+                        <input type="checkbox" value="맛집/향토음식" onchange="toggleInterest(this)">
+                        <span class="icon">😋</span>
+                        <span class="label">지역 맛집 & 찻집</span>
+                    </label>
+                    <label class="check-card">
+                        <input type="checkbox" value="전통시장" onchange="toggleInterest(this)">
+                        <span class="icon">🛍️</span>
+                        <span class="label">전통시장 구경</span>
+                    </label>
+                    <label class="check-card">
+                        <input type="checkbox" value="박물관/전시" onchange="toggleInterest(this)">
+                        <span class="icon">🎨</span>
+                        <span class="label">박물관 & 전시관</span>
+                    </label>
+                </div>
+
+                <div class="step-actions flex-between">
+                    <button class="btn btn-secondary btn-lg" onclick="prevStep(3)">⬅️ 이전</button>
+                    <button class="btn btn-primary btn-lg" onclick="nextStep(5)">다음 질문 ➔</button>
+                </div>
+            </section>
+
+            <!-- [STEP 5] 동행 인원 수 선택 -->
+            <section class="step-section" id="step5">
+                <div class="step-header">
+                    <span class="badge">5단계</span>
+                    <h2>함께 가시는 총 인원은 몇 분이신가요?</h2>
+                    <p class="step-desc">어르신 본인을 포함한 전체 인원수를 알려주세요.</p>
+                </div>
+
+                <div class="counter-box">
+                    <button class="counter-btn" onclick="adjustCompanion(-1)">-</button>
+                    <span class="counter-val" id="companionDisplay">2명</span>
+                    <button class="counter-btn" onclick="adjustCompanion(1)">+</button>
+                </div>
+
+                <!-- 안내 박스 -->
+                <div class="info-notice">
+                    <p>⚡ <strong>이동수단</strong>: 전기차 자가운전 기준 (경로 상 충전소 안내)</p>
+                    <p>⏰ <strong>시간</strong>: 오전 9시 이후 출발 당일치기 (숙박 없음)</p>
+                </div>
+
+                <div class="step-actions flex-between">
+                    <button class="btn btn-secondary btn-lg" onclick="prevStep(4)">⬅️ 이전</button>
+                    <button class="btn btn-success btn-lg btn-glow" onclick="submitTripForm()">✨ 여행 일정 만들기</button>
+                </div>
+            </section>
+
+            <!-- [LOADING] 로딩 화면 -->
+            <section class="step-section" id="stepLoading">
+                <div class="loading-box">
+                    <div class="spinner"></div>
+                    <h2>어르신께 딱 맞는 맞춤 일정을 생성하고 있습니다...</h2>
+                    <p>잠시만 기다려 주세요 (약 5~10초 소요)</p>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- [FOOTER] 하단 지자체 DB 업데이트 게이트 -->
+        <footer class="app-footer text-center" style="margin-top: 35px; padding: 20px 10px; border-top: 1px solid var(--border-soft); color: var(--slate-muted); font-size: 14px;">
+            <p style="margin-bottom: 8px;">🏛️ <strong>지자체 문화관광 인증 DB 연동</strong>: 경기도 시/군 및 서울 6개 자치구 official 으뜸맛집 최신 데이터베이스</p>
+            <button class="btn btn-secondary" onclick="updateMonthlyDatabase()" style="padding: 10px 22px; font-size: 14px; border-radius: 20px; font-weight: 600; cursor: pointer;">
+                🔄 [월간 1회] 지자체 으뜸맛집 DB 동기화 업데이트
+            </button>
+            <p style="font-size: 12px; margin-top: 10px; color: var(--slate-muted);">최신 동기화 완료: <span id="dbLastUpdated" style="font-weight: bold; color: var(--primary-color);">2026-08-03</span></p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

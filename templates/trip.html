@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>당일치기 여행 일정 결과</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 헤더 및 공유 제어 -->
+        <header class="header no-print">
+            <a href="/" class="back-link">⬅️ 새 일정 만들기</a>
+            <h1 class="title">🚗 당일치기 여행 추천 일정</h1>
+            <p class="subtitle"><strong>생성일: {{ trip.createdAt.split(' ')[0].split('T')[0] }}</strong></p>
+        </header>
+
+        <main class="trip-card">
+            <!-- 상단 요약 카드 -->
+            <div class="overview-box">
+                <h2>📌 여행 한 줄 요약</h2>
+                <p class="overview-text">{{ trip.output.overview }}</p>
+                
+                <div class="input-tags">
+                    <span class="tag">목적지: {{ trip.input.destination }}</span>
+                    {% if trip.input.cuisineType %}
+                    <span class="tag">음식 종류: {{ trip.input.cuisineType }}</span>
+                    {% endif %}
+                    <span class="tag">1인 식비: {% if trip.input.lunchBudgetPerPerson <= 10000 %}1만원대{% elif trip.input.lunchBudgetPerPerson == 20000 %}2만원대{% else %}3만원대{% endif %}</span>
+                    <span class="tag">인원: {{ trip.input.companionCount }}명</span>
+                    <span class="tag">이동: 전기차 자가운전</span>
+                </div>
+            </div>
+
+            <!-- 타임라인 (시간대별 세부 일정) -->
+            <section class="section-block">
+                <h3 class="section-title">⏰ 시간대별 일과 일정</h3>
+                <div class="timeline">
+                    {% for item in trip.output.timeline %}
+                    <div class="timeline-item">
+                        <div class="time-badge">{{ item.time }}</div>
+                        <div class="timeline-content">
+                            <h4>{{ item.title }}</h4>
+                            <p class="item-desc">{{ item.description }}</p>
+                            
+                            {% if item.walkingInfo %}
+                            <div class="walking-badge">
+                                🚶‍♂️ <strong>이동/도보 안내</strong>: {{ item.walkingInfo }}
+                            </div>
+                            {% endif %}
+
+                            {% if item.mapUrls %}
+                            <div class="map-btn-group no-print">
+                                <a href="{{ item.mapUrls.kakao_route if item.mapUrls.kakao_route else item.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
+                                    🗺️ 카카오맵으로 [ {{ item.title }} ] 길찾기
+                                </a>
+                            </div>
+                            {% endif %}
+
+                            {% if item.isVerificationNeeded %}
+                            <div class="alert-badge">
+                                ⚠️ <strong>[방문 전 확인 필요]</strong> {{ item.note if item.note else "메뉴 가격/영업시간을 전화로 확인하세요." }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- 12:30 점심 식사 일정 바로 아래에 추천 식당 3선 카드 배치 -->
+                    {% if (item.time == "12:30" or "점심" in item.title) and trip.output.restaurantCandidates %}
+                    <div class="restaurant-inline-box">
+                        <h4 class="rest-box-title">🍱 선택하신 [{{ trip.input.cuisineType if trip.input.cuisineType else '한식' }}] 추천 식당 3선 (1인 예산 약 {% if trip.input.lunchBudgetPerPerson <= 10000 %}1만원대{% elif trip.input.lunchBudgetPerPerson == 20000 %}2만원대{% else %}3만원대{% endif %})</h4>
+                        <p class="rest-box-sub">아래 3가지 식당 중 취향에 맞는 곳으로 방문하세요. (전화 연결 및 카카오맵 길찾기)</p>
+                        
+                        <div class="restaurant-grid">
+                            {% for rest in trip.output.restaurantCandidates %}
+                            <div class="restaurant-card">
+                                <div class="rest-header">
+                                    <h4>{{ loop.index }}. {{ rest.name }}</h4>
+                                    <div class="phone-box">
+                                        <span class="phone-number">📞 {{ rest.phone }}</span>
+                                        <a href="tel:{{ rest.phone }}" class="btn-call no-print">전화연결</a>
+                                    </div>
+                                </div>
+                                {% if rest.certBadge %}
+                                <div class="cert-badge">
+                                    🏛️ <strong>지자체 인증</strong>: {{ rest.certBadge }}
+                                </div>
+                                {% endif %}
+                                <p class="rest-menu">🍲 <strong>대표 메뉴</strong>: {{ rest.menu }}</p>
+                                <p class="rest-walk">🚶 <strong>주차장 도보</strong>: {{ rest.walkingInfo }}</p>
+                                <p class="rest-feat">✨ <strong>특징</strong>: {{ rest.features }}</p>
+                                
+                                {% if rest.mapUrls %}
+                                <div class="map-btn-group no-print mt-2">
+                                    <a href="{{ rest.mapUrls.kakao_route if rest.mapUrls.kakao_route else rest.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
+                                        🗺️ 카카오맵으로 [ {{ rest.name }} ] 길찾기
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 14:00/14:30 카페 휴식 일정 바로 아래에 추천 카페 3선 카드 배치 (장소 이동 타임라인 항목 중복 출력 방지) -->
+                    {% if ("디저트 & 뷰카페" in item.title or "14:00" in item.time or "14:30" in item.time) and not ("장소 이동" in item.title or "차량 이동" in item.title or "오후 장소 이동" in item.title) and trip.output.cafeCandidates %}
+                    <div class="cafe-inline-box">
+                        <h4 class="cafe-box-title">☕ 어르신 쉬기 좋은 추천 카페 3선</h4>
+                        <p class="cafe-box-sub">아래 3가지 카페 중 뷰가 좋고 이동하기 편리한 곳을 선택해 보세요.</p>
+                        
+                        <div class="cafe-grid">
+                            {% for cafe in trip.output.cafeCandidates %}
+                            <div class="cafe-card">
+                                <div class="cafe-header">
+                                    <h4>{{ loop.index }}. {{ cafe.name }}</h4>
+                                    <div class="phone-box">
+                                        <span class="phone-number">📞 {{ cafe.phone }}</span>
+                                        <a href="tel:{{ cafe.phone }}" class="btn-call btn-call-cafe no-print">전화연결</a>
+                                    </div>
+                                </div>
+                                {% if cafe.certBadge %}
+                                <div class="cert-badge">
+                                    🏛️ <strong>지자체/관광 인증</strong>: {{ cafe.certBadge }}
+                                </div>
+                                {% endif %}
+                                <p class="cafe-dessert">☕ <strong>디저트 & 음료</strong>: {{ cafe.dessert }}</p>
+                                <p class="cafe-walk">🚶 <strong>도보 거리</strong>: {{ cafe.walkingInfo }}</p>
+                                <p class="cafe-feat">✨ <strong>특징 및 뷰</strong>: {{ cafe.features }}</p>
+                                
+                                {% if cafe.mapUrls %}
+                                <div class="map-btn-group no-print mt-2">
+                                    <a href="{{ cafe.mapUrls.kakao_route if cafe.mapUrls.kakao_route else cafe.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
+                                        🗺️ 카카오맵으로 [ {{ cafe.name }} ] 길찾기
+                                    </a>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% endfor %}
+                </div>
+            </section>
+
+            <!-- 예상 비용 합계 -->
+            <section class="section-block">
+                <h3 class="section-title">💰 예상 비용 안내 (점심 식비 & 카페 포함)</h3>
+                <div class="cost-card">
+                    <div class="total-cost">
+                        <span>총 예상 비용 (총 {{ trip.input.companionCount }}인 기준):</span>
+                        <strong class="price">{{ "{:,}".format(trip.output.estimatedCost.total) }}원</strong>
+                    </div>
+                    <ul class="cost-list">
+                        {% for detail in trip.output.estimatedCost.details %}
+                        <li>
+                            <span>{{ detail.item }}</span>
+                            <strong>{{ "{:,}".format(detail.cost) }}원</strong>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="cost-note">※ 숙박비 및 주유비는 제외된 당일치기 순수 점심 식비/디저트/체험 비용입니다.</p>
+                </div>
+            </section>
+
+            <!-- 경로 & 차량 이동 주차장 목록 & EV 충전소 정보 -->
+            <section class="section-block">
+                <h3 class="section-title">🅿️ 방문 장소별 전체 주차장 & 전기차(EV) 충전소 지도 연결</h3>
+                <div class="route-box">
+                    <div class="route-info">
+                        <p>🛣️ <strong>편도 예상 거리 / 주행시간</strong>: {{ trip.output.routePlan.totalDistance }} ({{ trip.output.routePlan.estimatedDriveTime }})</p>
+                    </div>
+
+                    {% if trip.output.routePlan.parkingLots %}
+                    {% for p_lot in trip.output.routePlan.parkingLots %}
+                    <div class="parking-card mb-3">
+                        <h4>🅿️ {{ p_lot.category if p_lot.category else '주차장' }}: {{ p_lot.name }}</h4>
+                        <p><strong>주차장명</strong>: {{ p_lot.name }}</p>
+                        <p><strong>주차 요금</strong>: {{ p_lot.feeInfo }}</p>
+                        <p><strong>주차 및 이동 편의</strong>: {{ p_lot.convenience }}</p>
+
+                        {% if p_lot.mapUrls %}
+                        <div class="map-btn-group no-print mt-2">
+                            <a href="{{ p_lot.mapUrls.kakao_route if p_lot.mapUrls.kakao_route else p_lot.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
+                                🗺️ 카카오맵으로 [ {{ p_lot.name }} ] 길찾기
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    {% elif trip.output.routePlan.parkingLot %}
+                    <div class="parking-card">
+                        <h4>🅿️ 추천 주차장 정보</h4>
+                        <p><strong>주차장명</strong>: {{ trip.output.routePlan.parkingLot.name }}</p>
+                        <p><strong>주차 요금</strong>: {{ trip.output.routePlan.parkingLot.feeInfo }}</p>
+                        <p><strong>주차 및 이동 편의</strong>: {{ trip.output.routePlan.parkingLot.convenience }}</p>
+
+                        {% if trip.output.routePlan.parkingLot.mapUrls %}
+                        <div class="map-btn-group no-print mt-2">
+                            <a href="{{ trip.output.routePlan.parkingLot.mapUrls.kakao_route if trip.output.routePlan.parkingLot.mapUrls.kakao_route else trip.output.routePlan.parkingLot.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
+                                🗺️ 카카오맵으로 [ {{ trip.output.routePlan.parkingLot.name }} ] 길찾기
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if trip.output.routePlan.evChargingStation %}
+                    <div class="ev-card">
+                        <h4>🔋 전기차(EV) 급속 충전소 정보</h4>
+                        <p><strong>충전소명</strong>: {{ trip.output.routePlan.evChargingStation.name }}</p>
+                        <p><strong>위치 및 도보</strong>: {{ trip.output.routePlan.evChargingStation.location }}</p>
+                        <p><strong>사양</strong>: {{ trip.output.routePlan.evChargingStation.type }}</p>
+
+                        {% if trip.output.routePlan.evChargingStation.mapUrls %}
+                        <div class="map-btn-group no-print mt-2">
+                            <a href="{{ trip.output.routePlan.evChargingStation.mapUrls.kakao_route if trip.output.routePlan.evChargingStation.mapUrls.kakao_route else trip.output.routePlan.evChargingStation.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
+                                ⚡ 카카오맵으로 [ {{ trip.output.routePlan.evChargingStation.name }} ] 위치보기
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <!-- 하단 액션 버튼 (공유 & 인쇄) -->
+            <div class="action-bar no-print">
+                <button class="btn btn-secondary btn-lg" onclick="copyShareUrl()">🔗 카카오톡 / 문자 링크 공유하기</button>
+                <button class="btn btn-primary btn-lg" onclick="window.print()">🖨️ 이 일정 인쇄 / PDF 저장</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function copyShareUrl() {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                alert("가족이나 지인에게 보낼 주소가 복사되었습니다!\n카카오톡이나 문자메시지에 붙여넣어 공유하세요.\n\n" + url);
+            }).catch(err => {
+                alert("주소 복사 실패: " + url);
+            });
+        }
+    </script>
+</body>
+</html>
