@@ -13,10 +13,33 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "senior_trip_secret_2026")
 
-# 환경변수 설정값
+# 환경변수 설정값 (보안: CLI/로그에 절대 그대로 노출되지 않아야 함)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+EV_API_KEY = os.getenv("EV_API_KEY", "")
+GG_DATA_API_KEY = os.getenv("GG_DATA_API_KEY", "")
+SEOUL_DATA_API_KEY = os.getenv("SEOUL_DATA_API_KEY", "")
 APP_PASSWORD = os.getenv("APP_PASSWORD", "4775")
 TRIPS_DB_FILE = os.path.join(os.path.dirname(__file__), "trips.json")
+
+# --- 모니터링 & 보안: 백엔드 콘솔 로깅 미들웨어 (민감정보 마스킹) ---
+@app.before_request
+def log_request_info():
+    # .env 민감 정보(비밀번호, API 키)가 CLI 로그에 노출되지 않도록 절대 원본을 출력하지 않음
+    path = request.path
+    method = request.method
+    remote_ip = request.remote_addr
+    print(f"[REQUEST] {method} {path} (Client: {remote_ip})")
+
+@app.after_request
+def log_response_info(response):
+    print(f"[RESPONSE] {request.method} {request.path} -> Status {response.status_code}")
+    return response
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    print(f"[ERROR] 서버 내부 오류 발생: {str(e)}")
+    return jsonify({"success": False, "message": "서버 내부 처리 중 오류가 발생했습니다."}), 500
+
 
 # --- 데이터베이스 파일 (JSON 기반) 도우미 함수 ---
 def load_trips():
@@ -75,6 +98,7 @@ def clean_place_name(name):
     ]
     for remove_word in descriptive_words:
         cleaned = cleaned.replace(remove_word, "")
+    cleaned = cleaned.replace("대형주차장", "주차장")
     return cleaned.strip()
 
 # 카카오맵 검색 & 길찾기 전용 URL 생성 함수 (지역명 결합으로 전국 100% 정밀 검색 보장)
@@ -98,6 +122,140 @@ def make_map_urls(place_name, region=""):
         "kakao_route": f"https://map.kakao.com/link/search/{encoded}",
         "naver": f"https://map.naver.com/v5/search/{encoded}"
     }
+
+def fetch_ev_charger_info(parking_name, region_tag=""):
+    """한국환경공단 공공데이터 API를 통해 주차장 인근 EV 충전소 실시간 정보 조회"""
+    import urllib.parse
+    import urllib.request
+
+    clean_name = clean_place_name(parking_name)
+    
+    # API 키가 등록된 경우 실제 공공데이터 API 호출
+    if EV_API_KEY and EV_API_KEY != "your_ev_api_key_here":
+        try:
+            # zcode (지역코드) 매핑 (서울:11, 경기:41, 인천:28)
+            zcode = "41" # 기본 경기도
+            if any(r in region_tag or r in parking_name for r in ["서울", "종로", "중구", "용산", "송파", "마포", "은평"]):
+                zcode = "11"
+            elif any(r in region_tag or r in parking_name for r in ["인천", "송도", "소래포구"]):
+                zcode = "28"
+
+            url = f"http://apis.data.go.kr/B552584/EvCharger/getChargerInfo?serviceKey={EV_API_KEY}&pageNo=1&numOfRows=10&zcode={zcode}&dataType=JSON"
+            
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=3) as response:
+                res_body = response.read().decode('utf-8')
+                data = json.loads(res_body)
+                items = data.get("items", {}).get("item", [])
+                
+                # 주차장명 또는 장소명 키워드 매칭
+                matched = [i for i in items if clean_name in i.get("statNm", "") or clean_name in i.get("addr", "")]
+                if matched:
+                    target = matched[0]
+                    busi_nm = target.get("busiNm", "공용 충전기")
+                    chger_type_code = str(target.get("chgerType", "01"))
+                    
+                    type_map = {
+                        "01": "DC차데모", "02": "AC완속", "03": "DC차데모+AC3상",
+                        "04": "DC콤보", "05": "DC차데모+DC콤보", "06": "DC차데모+AC3상+DC콤보",
+                        "07": "AC3상", "08": "DC콤보(완속겸용)"
+                    }
+                    type_str = type_map.get(chger_type_code, "DC 콤보 급속")
+                    output_power = target.get("output", "50")
+                    
+                    return {
+                        "name": f"{target.get('statNm', parking_name)} EV 충전소",
+                        "location": target.get("addr", "주차장 내 전용 구역"),
+                        "brand": f"{busi_nm} / 총 {len(matched)}기 운용 중",
+                        "type": f"{type_str} ({output_power}kW 급속)",
+                        "mapUrls": make_map_urls(f"{clean_name} 전기차충전소")
+                    }
+        except Exception as e:
+            print(f"[WARN] 공공데이터 EV API 호출 실패: {e}")
+
+    # Fallback 기본 데이터 (API 키 미설정 시 또는 매칭 실패 시)
+    return None
+
+def verify_with_local_gov_api(restaurant_name, region_tag=""):
+    """경기데이터드림 / 서울열린데이터광장 API를 이용한 지자체 모범/으뜸업소 실시간 검증"""
+    import urllib.request
+
+    clean_name = clean_place_name(restaurant_name)
+    if not clean_name:
+        return None
+
+    # 1. 경기데이터드림 API 검증 (경기도 시·군 지역인 경우)
+    if GG_DATA_API_KEY and GG_DATA_API_KEY != "your_gg_api_key_here":
+        try:
+            encoded_name = quote(clean_name)
+            url = f"https://openapi.gg.go.kr/GeneBestRestaurant?KEY={GG_DATA_API_KEY}&Type=json&pIndex=1&pSize=10&RESTRT_NM={encoded_name}"
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=3) as response:
+                res_body = response.read().decode('utf-8')
+                data = json.loads(res_body)
+                items = data.get("GeneBestRestaurant", [{}, {}])[1].get("row", [])
+                if items:
+                    target = items[0]
+                    main_food = target.get("REPRSN_FOOD_NM", "")
+                    sigun = target.get("SIGUN_NM", "경기도")
+                    return f"🏛️ [{sigun} 지정 공식 으뜸맛집] {f'({main_food})' if main_food else ''} - 공공데이터 검증 완료"
+        except Exception as e:
+            print(f"[WARN] 경기데이터드림 API 검증 실패: {e}")
+
+    # 2. 서울열린데이터광장 API 검증 (서울 자치구 지역인 경우)
+    if SEOUL_DATA_API_KEY and SEOUL_DATA_API_KEY != "your_seoul_api_key_here":
+        try:
+            encoded_name = quote(clean_name)
+            url = f"http://openapi.seoul.go.kr:8088/{SEOUL_DATA_API_KEY}/json/CspRestaurantItem/1/5/{encoded_name}"
+            req = urllib.request.Request(url)
+            with urllib.request.urlopen(req, timeout=3) as response:
+                res_body = response.read().decode('utf-8')
+                data = json.loads(res_body)
+                items = data.get("CspRestaurantItem", {}).get("row", [])
+                if items:
+                    target = items[0]
+                    gu_nm = target.get("CGG_CODE_NM", "서울시")
+                    return f"🏛️ [{gu_nm} 지정 모범음식점] 서울 공공데이터 공식 인증업소"
+        except Exception as e:
+            print(f"[WARN] 서울열린데이터광장 API 검증 실패: {e}")
+
+    return None
+
+def check_unmatched_interests(interests, target_place, result_dict):
+    """사용자가 선택한 관심사 중 일정에 포함되지 않은 항목이 있다면 친절한 안내 문구를 생성합니다."""
+    if not interests:
+        return None
+        
+    full_text = json.dumps(result_dict, ensure_ascii=False)
+    
+    unmatched = []
+    matched = []
+    
+    for interest in interests:
+        kw = str(interest).split('/')[0].strip()
+        if kw in ["자연", "둘레길", "산책"]:
+            kw_list = ["자연", "둘레길", "산책", "공원", "수목원", "호수", "숲", "데크"]
+        elif kw in ["전통시장", "시장"]:
+            kw_list = ["전통시장", "시장", "오일장", "어시장", "장구경"]
+        elif kw in ["사찰", "문화유적", "문화재"]:
+            kw_list = ["사찰", "절", "문화재", "유적", "한옥", "민속촌", "고궁", "성곽"]
+        elif kw in ["온천", "족욕"]:
+            kw_list = ["온천", "족욕", "스파", "휴양"]
+        elif kw in ["맛집"]:
+            kw_list = ["맛집", "식당", "음식점"]
+        else:
+            kw_list = [kw]
+            
+        if any(k in full_text for k in kw_list):
+            matched.append(interest)
+        else:
+            unmatched.append(interest)
+            
+    if unmatched:
+        unmatched_str = ", ".join(unmatched)
+        matched_str = ", ".join(matched) if matched else "산책 및 휴식"
+        return f"💡 [안내] 선택하신 관심사 중 '{unmatched_str}'은(는) 목적지({target_place}) 주변에 인접해 있지 않거나 동선상 포함이 어려워 제외하고, 쾌적한 '{matched_str}' 중심으로 일정을 구성했습니다."
+    return None
 
 import random
 
@@ -166,11 +324,11 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             
             prompt = f"""
             당신은 성남시 분당구 거주 70대 이상 어르신을 위한 당일치기 여행 전문 가이드입니다.
-            사용자가 지정한 **목적지 [{target_place}]**, **음식 종류 [{cuisine}]**, 그리고 **관심사 [{', '.join(interests)}]**에 100% 맞춰서 해당 지자체(시/군/구) 문화관광과 공식 추천 명소 및 지자체 지정 '으뜸맛집', '모범음식점', '향토음식점' 인증을 우선 고려하여 카카오맵에서 100% 정상 검색되는 실제 식당 3곳, 실제 디저트 카페 3곳, 주차장 일정을 반환하세요.
+            사용자가 지정한 **목적지 [{target_place}]**, **음식 종류 [{cuisine}]**, 그리고 **관심사 [{', '.join(interests)}]**를 우선 고려하되, 인근 지리적 여건에 맞추어 해당 지자체(시/군/구) 문화관광과 공식 추천 명소 및 지자체 지정 '으뜸맛집', '모범음식점', '향토음식점' 인증을 우선 고려하여 카카오맵에서 100% 정상 검색되는 실제 식당 3곳, 실제 디저트 카페 3곳, 주차장 일정을 반환하세요.
 
             [4대 핵심 필수 엄수 제약 규칙]
             1. **[명소 명칭 100% 구체화 원칙]**: 목적지 및 산책/탐방 장소는 'OO평지둘레길', 'OO산책로' 같은 추상적인 명칭을 절대로 사용하지 말고, 카카오맵에 실제 등록된 구체적인 장소명(예: '안양예술공원 무장애 숲속 데크 둘레길', '의정부 직동근린공원 무장애 숲길', '서울 용산구 용산가족공원 거울못 수변 산책로', '수원화성 성곽길 & 행리단길 평지 산책로')을 정확하고 구체적으로 명시하세요.
-            2. **[카카오맵 100% 실존 상호명 & 실제 전화번호 원칙]**: 추천 식당(`restaurantCandidates`)과 카페(`cafeCandidates`)는 카카오맵에 검색했을 때 그 이름 그대로 100% 정확하게 나오는 실제 공식 상호명과 매장의 실제 전화번호를 반환하세요. 가상의 상호명이나 가짜 전화번호는 절대 금지됩니다.
+            2. **[카카오맵 100% 실존 상호명 & 실제 전화번호 원칙 (가상 장소/미등록 장소 절대 금지)]**: 추천 식당(`restaurantCandidates`)과 카페(`cafeCandidates`)는 카카오맵에 검색했을 때 그 이름 그대로 100% 정확하게 나오는 실제 공식 상호명과 매장의 실제 전화번호를 반환하세요. '용인 민속촌 한정식' 같은 가상의 상호명, 추측성 이름, 카카오맵에 등록되어 있지 않은 곳은 절대 추천하지 마세요.
             3. **[이전 & 이후 순방향 최단 동선 최적화 원칙 (왕복/헛걸음 절대 금지)]**:
                - 오전 산책/탐방 장소 ➔ 점심 식당 ➔ 디저트 카페 ➔ 오후 일정 간의 동선이 차로 돌아가거나 갔던 길을 다시 돌아오는 불필요한 왕복 동선 없이, **도보 1~5분 거리(300m 이내) 또는 차량 주차 재이동 없는 최단 순방향 동선**으로 완벽하게 이어지도록 구성하세요.
             4. **[성격이 다른 일정의 명확한 독립 분리 원칙]**: '사찰/문화재 탐방'과 '전통시장 장구경'처럼 성격이 다른 별개의 활동을 '사찰 탐방 및 장구경'과 같이 하나의 항목으로 뭉뚱그려 혼합 표시하지 말고, 각각 독립된 세부 일정 항목으로 깔끔히 분리하여 제시하세요.
@@ -335,7 +493,10 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             # 식당 후보 지도 URL 및 지자체 인증 배지 주입
             for idx, r in enumerate(result.get("restaurantCandidates", [])):
                 r["mapUrls"] = make_map_urls(r["name"])
-                if not r.get("certBadge"):
+                api_cert = verify_with_local_gov_api(r.get("name", ""), target_place)
+                if api_cert:
+                    r["certBadge"] = api_cert
+                elif not r.get("certBadge"):
                     badges = [
                         "🏛️ 지자체 지정 으뜸맛집 및 모범음식점",
                         "🏛️ 해당 시/군/구 문화관광 우수 추천업소",
@@ -361,12 +522,29 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
                     item["mapUrls"] = make_map_urls(kw)
             
             if "parkingLot" in result.get("routePlan", {}):
-                kw = result["routePlan"]["parkingLot"].get("placeKeyword") or result["routePlan"]["parkingLot"].get("name")
+                p_name = result["routePlan"]["parkingLot"].get("name", target_place)
+                kw = result["routePlan"]["parkingLot"].get("placeKeyword") or p_name
                 result["routePlan"]["parkingLot"]["mapUrls"] = make_map_urls(kw)
+                
+                # 공공데이터 API 실시간 연동 시도
+                api_ev = fetch_ev_charger_info(p_name, target_place)
+                if api_ev:
+                    result["routePlan"]["evChargingStation"] = api_ev
+                elif "evChargingStation" in result.get("routePlan", {}) and result["routePlan"]["evChargingStation"]:
+                    kw = result["routePlan"]["evChargingStation"].get("placeKeyword") or result["routePlan"]["evChargingStation"].get("name")
+                    result["routePlan"]["evChargingStation"]["mapUrls"] = make_map_urls(kw)
 
-            if "evChargingStation" in result.get("routePlan", {}):
-                kw = result["routePlan"]["evChargingStation"].get("placeKeyword") or result["routePlan"]["evChargingStation"].get("name")
-                result["routePlan"]["evChargingStation"]["mapUrls"] = make_map_urls(kw)
+                # 현지 도착 이동 항목에 주차장 객체 1:1 바인딩
+                for item in result.get("timeline", []):
+                    title_str = item.get("title", "")
+                    if ("도착" in title_str or "차량 이동" in title_str) and "분당" not in title_str and "귀가" not in title_str:
+                        item["parkingLot"] = result["routePlan"]["parkingLot"]
+                        break
+
+            # 미반영 관심사 사유 자동 안내 주입
+            note = check_unmatched_interests(interests, target_place, result)
+            if note:
+                result["unmatchedInterestsNote"] = note
 
             return result
         except Exception as e:
@@ -377,8 +555,9 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     # [남한산성 / 광주]
     if "남한산성" in target_place or "광주" in target_place:
         dest_title = "광주 남한산성"
-        parking_name = "남한산성 도립공원 중앙주차장"
-        parking_fee = "평일 3,000원 / 주말 5,000원 (전기차 50% 할인)"
+        parking_name = "남한산성 도립공원 남문주차장"
+        parking_fee = "평일 3,000원 / 주말 5,000원 (전기차 50% 할인, 급속 충전소 완비)"
+        ev_brand = "워터(Water) 전동화 브랜드 / 200kW 급속 6기 운영 중"
         
         cafe_list = [
             {"name": "카페 아라비카", "phone": "031-746-9920", "dessert": "수제 팥빙수 & 드립 커피", "walkingInfo": "산책로 도보 3분 (150m)", "features": "남한산성 고즈넉한 숲 뷰, 소파 좌석", "mapUrls": make_map_urls("카페 아라비카")},
@@ -414,7 +593,7 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     # [용인 / 민속촌]
     elif "민속촌" in target_place or "용인" in target_place:
         dest_title = "용인 한국민속촌"
-        parking_name = "한국민속촌 대형주차장"
+        parking_name = "한국민속촌 주차장"
         parking_fee = "1일 2,000원 (전기차 50% 할인)"
         
         cafe_list = [
@@ -425,27 +604,27 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         
         if cuisine == "양식":
             rest_list = [
-                {"name": "용인 보정동 핏제리아", "phone": "031-8005-8412", "menu": f"크림 파스타 & 피자 (1인 {lunch_budget:,}원대)", "walkingInfo": "주차장 도보 3분 (150m)", "features": "담백하고 부드러운 양식", "mapUrls": make_map_urls("보정동 카페거리")},
-                {"name": "용인 어정 파스타", "phone": "031-8005-8412", "menu": "화덕 피자 & 샐러드", "walkingInfo": "주차장 도보 4분 (200m)", "features": "조용한 소파 석", "mapUrls": make_map_urls("보정동 카페거리")},
-                {"name": "용인 스테이크하우스", "phone": "031-8005-8412", "menu": "안심 스테이크 정식", "walkingInfo": "주차장 도보 2분 (100m)", "features": "어르신 모임 추천", "mapUrls": make_map_urls("한국민속촌")}
+                {"name": "피제리아 비노", "phone": "031-889-8388", "menu": f"크림 파스타 & 피자 (1인 {lunch_budget:,}원대)", "walkingInfo": "주차장 도보 3분 (150m)", "features": "담백하고 부드러운 이탈리안 양식", "mapUrls": make_map_urls("피제리아 비노")},
+                {"name": "라라코스트 용인어정점", "phone": "031-283-0004", "menu": "화덕 피자 & 샐러드", "walkingInfo": "주차장 도보 4분 (200m)", "features": "조용한 소파 석, 가성비 파스타", "mapUrls": make_map_urls("라라코스트 용인어정점")},
+                {"name": "어스테이크", "phone": "031-287-7377", "menu": "안심 스테이크 정식", "walkingInfo": "주차장 도보 2분 (100m)", "features": "어르신 모임 추천 프리미엄 스테이크", "mapUrls": make_map_urls("어스테이크")}
             ]
         elif cuisine == "일식":
             rest_list = [
-                {"name": "용인 솥밥 정식", "phone": "031-288-0000", "menu": f"소갈비 솥밥 & 장어 솥밥 (1인 {lunch_budget:,}원대)", "walkingInfo": "주차장 도보 3분 (150m)", "features": "따뜻한 보양 솥밥", "mapUrls": make_map_urls("용인 솥밥")},
-                {"name": "용인 초밥 정식", "phone": "031-288-0000", "menu": "모둠 초밥 정식", "walkingInfo": "주차장 도보 4분 (200m)", "features": "신선한 정갈함", "mapUrls": make_map_urls("용인 초밥")},
-                {"name": "용인 수제 돈가스", "phone": "031-288-0000", "menu": "돈가스 & 우동 정식", "walkingInfo": "주차장 도보 2분 (100m)", "features": "바삭하고 속 편함", "mapUrls": make_map_urls("용인 돈가스")}
+                {"name": "솔솥 보정동카페거리점", "phone": "031-266-5654", "menu": f"소갈비 솥밥 & 도미관자 솥밥 (1인 {lunch_budget:,}원대)", "walkingInfo": "주차장 도보 3분 (150m)", "features": "따뜻하고 영양 가득한 보양 솥밥", "mapUrls": make_map_urls("솔솥 보정동카페거리점")},
+                {"name": "오와스시 기흥점", "phone": "031-284-8855", "menu": "모둠 초밥 정식", "walkingInfo": "주차장 도보 4분 (200m)", "features": "신선하고 정갈한 초밥", "mapUrls": make_map_urls("오와스시 기흥점")},
+                {"name": "돈까스클럽 용인보라점", "phone": "031-287-0023", "menu": "수제 돈가스 & 우동 정식", "walkingInfo": "주차장 도보 2분 (100m)", "features": "바삭하고 속 편한 튀김", "mapUrls": make_map_urls("돈까스클럽 용인보라점")}
             ]
         elif cuisine == "중식":
             rest_list = [
                 {"name": "용인 백리향", "phone": "031-286-1234", "menu": f"해물 짬뽕 & 탕수육 (1인 {lunch_budget:,}원대)", "walkingInfo": "주차장 도보 3분 (150m)", "features": "전통 코스 중식당", "mapUrls": make_map_urls("용인 백리향")},
                 {"name": "용인 취영루", "phone": "031-746-5500", "menu": "중화 코스 요리", "walkingInfo": "주차장 도보 4분 (200m)", "features": "넓은 룸 보유", "mapUrls": make_map_urls("취영루")},
-                {"name": "용인 간짜장", "phone": "031-288-0000", "menu": "간짜장 & 군만두", "walkingInfo": "주차장 도보 2분 (100m)", "features": "속 편한 맛", "mapUrls": make_map_urls("한국민속촌")}
+                {"name": "동천홍", "phone": "031-275-5200", "menu": "간짜장 & 군만두", "walkingInfo": "주차장 도보 2분 (100m)", "features": "속 편하고 깊은 맛의 중식", "mapUrls": make_map_urls("동천홍")}
             ]
         else: # 한식
             rest_list = [
                 {"name": "한국민속촌 장터", "phone": "031-288-0000", "menu": f"장터 장국밥 & 파전 (1인 {lunch_budget:,}원대)", "walkingInfo": "주차장 도보 3분 (150m)", "features": "민속촌 운치 속 주막 분위기", "mapUrls": make_map_urls("한국민속촌 장터")},
                 {"name": "고매옥", "phone": "031-286-9040", "menu": "한방 백숙 & 곤드레 정식", "walkingInfo": "주차장 도보 4분 (200m)", "features": "어르신 보양식 한정식", "mapUrls": make_map_urls("고매옥")},
-                {"name": "용인 민속촌 한정식", "phone": "031-288-0000", "menu": "불고기 정식 & 보리밥", "walkingInfo": "주차장 도보 2분 (100m)", "features": "정갈한 한상 차림", "mapUrls": make_map_urls("한국민속촌")}
+                {"name": "교동두부", "phone": "031-281-3453", "menu": "교동 정식 & 수제두부 한정식", "walkingInfo": "주차장 도보 2분 (100m)", "features": "한국민속촌 정문 맞은편 정갈한 수제 두부 한상 차림", "mapUrls": make_map_urls("교동두부")}
             ]
 
     # [송도 / 인천]
@@ -527,6 +706,7 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         dest_title = "이천 설봉공원"
         parking_name = "설봉공원 공영주차장"
         parking_fee = "무료 (전기차 급속 충전소 완비)"
+        ev_brand = "환경부 공용 충전기 / 50kW 급속 2기 운영 중"
         
         cafe_list = [
             {"name": "이진상회", "phone": "031-637-4433", "dessert": "이천 쌀명장 베이커리 빵 & 아메리카노", "walkingInfo": "산책로 도보 3분 (150m)", "features": "넓은 자작나무 숲 대형 베이커리 카페", "certBadge": "☕ 이천시 대표 뷰/베이커리 카페", "mapUrls": make_map_urls("이진상회")},
@@ -562,7 +742,7 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     # [가평 / 아침고요수목원 / 자라섬]
     elif "가평" in target_place or "수목원" in target_place:
         dest_title = "가평 아침고요수목원"
-        parking_name = "아침고요수목원 주차장"
+        parking_name = "가평 아침고요수목원 주차장"
         parking_fee = "무료 (전기차 급속 충전소 완비)"
         
         cafe_list = [
@@ -600,7 +780,8 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     elif "양평" in target_place or "두물머리" in target_place:
         dest_title = "양평 두물머리"
         parking_name = "두물머리 공영주차장"
-        parking_fee = "1일 3,000원 (전기차 50% 할인)"
+        parking_fee = "1일 3,000원 (전기차 50% 할인, 급속 충전소 완비)"
+        ev_brand = "환경부 공용 충전기 / 100kW 급속 2기 운영 중"
         
         cafe_list = [
             {"name": "하우스베이커리", "phone": "031-772-8333", "dessert": "망고 크루아상 & 대추차", "walkingInfo": "도보 3분 (150m)", "features": "고즈넉한 한옥 대형 정원 베이커리 카페", "certBadge": "☕ 양평 대표 한옥 뷰카페", "mapUrls": make_map_urls("하우스베이커리")},
@@ -637,7 +818,8 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     elif "포천" in target_place or "산정호수" in target_place or "허브" in target_place:
         dest_title = "포천 산정호수"
         parking_name = "산정호수 상동주차장"
-        parking_fee = "1일 2,000원 (전기차 50% 할인)"
+        parking_fee = "1일 2,000원 (전기차 50% 할인, 급속 충전소 완비)"
+        ev_brand = "환경부 공용 충전기 / 50kW 급속 2기 운영 중"
         
         cafe_list = [
             {"name": "숨원카페", "phone": "031-544-7888", "dessert": "수제 한방차 & 허브 빵", "walkingInfo": "도보 2분 (100m)", "features": "산정호수 전경 뷰 소파석", "certBadge": "☕ 포천 산정호수 뷰카페", "mapUrls": make_map_urls("숨원카페")},
@@ -674,7 +856,8 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     elif "의정부" in target_place:
         dest_title = "의정부 직동근린공원 무장애 숲길 & 부대찌개거리"
         parking_name = "의정부 직동근린공원 주차장 (또는 부대찌개거리 공영주차장)"
-        parking_fee = "1시간 1,000원 (전기차 50% 할인)"
+        parking_fee = "1시간 1,000원 (전기차 50% 할인, 급속 충전소 완비)"
+        ev_brand = "의정부시/차지비 공용 충전기 / 50kW 급속 2기 운영 중"
         
         cafe_list = [
             {"name": "아나키아", "phone": "031-856-5000", "dessert": "시그니처 아인슈페너 & 수제 베이커리", "walkingInfo": "공원 산책로 도보 3분 (180m)", "features": "의정부 대표 대형 힐링 뷰카페, 엘리베이터 보유", "certBadge": "☕ 의정부 대표 대형 뷰카페", "mapUrls": make_map_urls("아나키아")},
@@ -1188,69 +1371,69 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     }
 
     SPA_MAP = {
-        "의정부": ("의정부 아일랜드타운 온천스파", "차량 약 10분 (4km)", "온천 주차장"),
-        "송도": ("송도 솔찬공원 족욕장", "차량 약 10분 (6km)", "솔찬공원 주차장"),
-        "인천": ("송도 솔찬공원 족욕장", "차량 약 10분 (6km)", "솔찬공원 주차장"),
-        "수원": ("화성 율암온천", "차량 약 15분 (10km)", "율암온천 주차장"),
-        "화성": ("화성 율암온천", "차량 약 15분 (10km)", "율암온천 주차장"),
-        "이천": ("이천 설봉온천", "차량 약 5분 (1.8km)", "설봉온천 주차장"),
-        "설봉": ("이천 설봉온천", "차량 약 5분 (1.8km)", "설봉온천 주차장"),
-        "가평": ("가평 숲속 족욕체험장", "도보/차량 약 3분", "수목원 주차장"),
-        "수목원": ("가평 숲속 족욕체험장", "도보/차량 약 3분", "수목원 주차장"),
-        "양평": ("양평 힐링 족욕카페", "차량 약 10분 (7km)", "족욕카페 주차장"),
-        "두물머리": ("양평 힐링 족욕카페", "차량 약 10분 (7km)", "족욕카페 주차장"),
-        "광주": ("남한산성 족욕카페", "차량 약 5분 (1.5km)", "족욕카페 주차장"),
-        "남한산성": ("남한산성 족욕카페", "차량 약 5분 (1.5km)", "족욕카페 주차장"),
-        "용인": ("용인 로만바스 온천", "차량 약 15분 (10km)", "로만바스 주차장"),
-        "민속촌": ("용인 로만바스 온천", "차량 약 15분 (10km)", "로만바스 주차장"),
-        "포천": ("포천 신북 온천스파", "차량 약 18분 (15km)", "신북온천 대형주차장"),
-        "산정호수": ("포천 신북 온천스파", "차량 약 18분 (15km)", "신북온천 대형주차장"),
-        "파주": ("파주 헤이리 힐링 족욕카페", "차량 약 25분 (20km)", "헤이리 공영주차장"),
-        "마장호수": ("파주 헤이리 힐링 족욕카페", "차량 약 25분 (20km)", "헤이리 공영주차장")
+        "의정부": ("의정부 아일랜드타운", "차량 약 10분 (4km)", "의정부 아일랜드타운 주차장"),
+        "송도": ("인천 솔찬공원", "차량 약 10분 (6km)", "인천 솔찬공원 주차장"),
+        "인천": ("인천 솔찬공원", "차량 약 10분 (6km)", "인천 솔찬공원 주차장"),
+        "수원": ("화성 율암온천", "차량 약 15분 (10km)", "화성 율암온천 주차장"),
+        "화성": ("화성 율암온천", "차량 약 15분 (10km)", "화성 율암온천 주차장"),
+        "이천": ("이천 설봉온천스파", "차량 약 5분 (1.8km)", "이천 설봉온천 주차장"),
+        "설봉": ("이천 설봉온천스파", "차량 약 5분 (1.8km)", "이천 설봉온천 주차장"),
+        "가평": ("아침고요살피꽃다방", "도보 약 3분 (150m)", "가평 아침고요수목원 주차장"),
+        "수목원": ("아침고요살피꽃다방", "도보 약 3분 (150m)", "가평 아침고요수목원 주차장"),
+        "양평": ("양평 쉼지오", "차량 약 10분 (7km)", "양평 쉼지오 주차장"),
+        "두물머리": ("양평 쉼지오", "차량 약 10분 (7km)", "양평 쉼지오 주차장"),
+        "광주": ("남한산성 족욕", "차량 약 5분 (1.5km)", "남한산성 도립공원 남문주차장"),
+        "남한산성": ("남한산성 족욕", "차량 약 5분 (1.5km)", "남한산성 도립공원 남문주차장"),
+        "용인": ("용인 로만바스", "차량 약 15분 (10km)", "용인 로만바스 주차장"),
+        "민속촌": ("용인 로만바스", "차량 약 15분 (10km)", "용인 로만바스 주차장"),
+        "포천": ("포천 신북온천", "차량 약 18분 (15km)", "포천 신북온천 대형주차장"),
+        "산정호수": ("포천 신북온천", "차량 약 18분 (15km)", "포천 신북온천 대형주차장"),
+        "파주": ("파주 헤이리 족욕", "차량 약 25분 (20km)", "파주 헤이리 공영주차장"),
+        "마장호수": ("파주 헤이리 족욕", "차량 약 25분 (20km)", "파주 헤이리 공영주차장")
     }
 
     TEMPLE_MAP = {
-        "의정부": ("의정부 망월사", "차량 약 12분 (5km)", "망월사 주차장"),
-        "송도": ("인천 흥륜사", "차량 약 10분 (5km)", "흥륜사 주차장"),
-        "인천": ("인천 흥륜사", "차량 약 10분 (5km)", "흥륜사 주차장"),
-        "수원": ("수원 용주사", "차량 약 15분 (8km)", "용주사 주차장"),
-        "화성": ("수원 용주사", "차량 약 15분 (8km)", "용주사 주차장"),
-        "이천": ("이천 영월암", "차량 약 5분 (2km)", "영월암 주차장"),
-        "설봉": ("이천 영월암", "차량 약 5분 (2km)", "영월암 주차장"),
-        "가평": ("가평 현등사", "차량 약 20분 (15km)", "현등사 주차장"),
-        "수목원": ("가평 현등사", "차량 약 20분 (15km)", "현등사 주차장"),
-        "양평": ("양평 사나사", "차량 약 15분 (10km)", "사나사 주차장"),
-        "두물머리": ("양평 사나사", "차량 약 15분 (10km)", "사나사 주차장"),
-        "광주": ("남한산성 장경사", "차량 약 7분 (2km)", "장경사 주차장"),
-        "남한산성": ("남한산성 장경사", "차량 약 7분 (2km)", "장경사 주차장"),
-        "용인": ("용인 와우정사", "차량 약 18분 (13km)", "와우정사 주차장"),
-        "민속촌": ("용인 와우정사", "차량 약 18분 (13km)", "와우정사 주차장"),
-        "포천": ("포천 자인사", "차량 약 5분 (3km)", "자인사 주차장"),
-        "산정호수": ("포천 자인사", "차량 약 5분 (3km)", "자인사 주차장"),
-        "파주": ("파주 보광사", "차량 약 8분 (5km)", "보광사 주차장"),
-        "마장호수": ("파주 보광사", "차량 약 8분 (5km)", "보광사 주차장")
+        "의정부": ("의정부 망월사", "차량 약 12분 (5km)", "의정부 망월사 주차장"),
+        "송도": ("인천 흥륜사", "차량 약 10분 (5km)", "인천 흥륜사 주차장"),
+        "인천": ("인천 흥륜사", "차량 약 10분 (5km)", "인천 흥륜사 주차장"),
+        "수원": ("수원 용주사", "차량 약 15분 (8km)", "수원 용주사 주차장"),
+        "화성": ("수원 용주사", "차량 약 15분 (8km)", "수원 용주사 주차장"),
+        "이천": ("이천 영월암", "차량 약 5분 (2km)", "이천 영월암 주차장"),
+        "설봉": ("이천 영월암", "차량 약 5분 (2km)", "이천 영월암 주차장"),
+        "가평": ("가평 현등사", "차량 약 20분 (15km)", "가평 현등사 주차장"),
+        "수목원": ("가평 현등사", "차량 약 20분 (15km)", "가평 현등사 주차장"),
+        "양평": ("양평 사나사", "차량 약 15분 (10km)", "양평 사나사 주차장"),
+        "두물머리": ("양평 사나사", "차량 약 15분 (10km)", "양평 사나사 주차장"),
+        "광주": ("남한산성 장경사", "차량 약 7분 (2km)", "남한산성 장경사 주차장"),
+        "남한산성": ("남한산성 장경사", "차량 약 7분 (2km)", "남한산성 장경사 주차장"),
+        "용인": ("용인 와우정사", "차량 약 18분 (13km)", "용인 와우정사 주차장"),
+        "민속촌": ("용인 와우정사", "차량 약 18분 (13km)", "용인 와우정사 주차장"),
+        "포천": ("포천 자인사", "차량 약 5분 (3km)", "포천 자인사 주차장"),
+        "산정호수": ("포천 자인사", "차량 약 5분 (3km)", "포천 자인사 주차장"),
+        "파주": ("파주 보광사", "차량 약 8분 (5km)", "파주 보광사 주차장"),
+        "마장호수": ("파주 보광사", "차량 약 8분 (5km)", "파주 보광사 주차장")
     }
 
     MUSEUM_MAP = {
-        "의정부": ("의정부 미술도서관", "차량 약 8분 (3.5km)", "도서관 주차장"),
-        "송도": ("국립세계문자박물관", "차량 약 8분 (4km)", "박물관 지하주차장"),
-        "인천": ("국립세계문자박물관", "차량 약 8분 (4km)", "박물관 지하주차장"),
-        "수원": ("수원화성박물관", "차량 약 3분 (1km)", "박물관 주차장"),
-        "화성": ("수원화성박물관", "차량 약 10분 (5km)", "박물관 주차장"),
-        "이천": ("이천시립월전미술관", "도보 3분 (200m)", "설봉공원 주차장"),
-        "설봉": ("이천시립월전미술관", "도보 3분 (200m)", "설봉공원 주차장"),
-        "가평": ("가평 쁘띠프랑스 이탈리아마을 전시관", "차량 약 20분 (15km)", "쁘띠프랑스 주차장"),
-        "수목원": ("가평 쁘띠프랑스 이탈리아마을 전시관", "차량 약 20분 (15km)", "쁘띠프랑스 주차장"),
-        "양평": ("양평군립미술관", "차량 약 12분 (9km)", "군립미술관 주차장"),
-        "두물머리": ("양평군립미술관", "차량 약 12분 (9km)", "군립미술관 주차장"),
-        "광주": ("남한산성 역사관", "도보 5분 (300m)", "남한산성 주차장"),
-        "남한산성": ("남한산성 역사관", "도보 5분 (300m)", "남한산성 주차장"),
-        "용인": ("경기도박물관", "차량 약 5분 (2.5km)", "경기도박물관 주차장"),
-        "민속촌": ("경기도박물관", "차량 약 5분 (2.5km)", "경기도박물관 주차장"),
-        "포천": ("포천 한가원 떡박물관", "차량 약 8분 (5km)", "한가원 주차장"),
-        "산정호수": ("포천 한가원 떡박물관", "차량 약 8분 (5km)", "한가원 주차장"),
-        "파주": ("파주 한국근현대사박물관", "차량 약 25분 (20km)", "헤이리 공영주차장"),
-        "마장호수": ("파주 한국근현대사박물관", "차량 약 25분 (20km)", "헤이리 공영주차장")
+        "의정부": ("의정부미술도서관", "차량 약 8분 (3.5km)", "의정부미술도서관 주차장"),
+        "송도": ("국립세계문자박물관", "차량 약 8분 (4km)", "국립세계문자박물관 지하주차장"),
+        "인천": ("국립세계문자박물관", "차량 약 8분 (4km)", "국립세계문자박물관 지하주차장"),
+        "수원": ("수원화성박물관", "차량 약 3분 (1km)", "수원화성박물관 주차장"),
+        "화성": ("수원화성박물관", "차량 약 10분 (5km)", "수원화성박물관 주차장"),
+        "이천": ("이천시립월전미술관", "도보 3분 (200m)", "이천 설봉공원 주차장"),
+        "설봉": ("이천시립월전미술관", "도보 3분 (200m)", "이천 설봉공원 주차장"),
+        "가평": ("가평 쁘띠프랑스", "차량 약 20분 (15km)", "가평 쁘띠프랑스 주차장"),
+        "수목원": ("가평 쁘띠프랑스", "차량 약 20분 (15km)", "가평 쁘띠프랑스 주차장"),
+        "양평": ("양평군립미술관", "차량 약 12분 (9km)", "양평군립미술관 주차장"),
+        "두물머리": ("양평군립미술관", "차량 약 12분 (9km)", "양평군립미술관 주차장"),
+        "광주": ("남한산성행궁", "도보 5분 (300m)", "남한산성 도립공원 남문주차장"),
+        "남한산성": ("남한산성행궁", "도보 5분 (300m)", "남한산성 도립공원 남문주차장"),
+        "용인": ("경기도박물관", "차량 약 5분 (2.5km)", "용인 경기도박물관 주차장"),
+        "민속촌": ("경기도박물관", "차량 약 5분 (2.5km)", "용인 경기도박물관 주차장"),
+        "포천": ("포천 한가원", "차량 약 8분 (5km)", "포천 한가원 주차장"),
+        "산정호수": ("포천 한가원", "차량 약 8분 (5km)", "포천 한가원 주차장"),
+        "파주": ("파주 한국근현대사박물관", "차량 약 25분 (20km)", "파주 헤이리 공영주차장"),
+        "마장호수": ("파주 한국근현대사박물관", "차량 약 25분 (20km)", "파주 헤이리 공영주차장")
     }
 
     # 10:15 대표 구체적 산책 스팟 매핑 데이터
@@ -1313,6 +1496,13 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         m = re.search(r'(\d+)\s*분', str(drive_str))
         return int(m.group(1)) if m else default_min
 
+    main_parking_obj = {
+        "name": parking_name,
+        "feeInfo": parking_fee,
+        "convenience": f"{dest_title} 둘레길 및 완만한 평지 산책로 입구와 직결",
+        "mapUrls": make_map_urls(parking_name)
+    }
+
     # 기본 타임라인 구조 준비 (이동 타임라인과 탐방 타임라인을 100% 분리)
     timeline_items = [
         {
@@ -1321,6 +1511,7 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             "description": f"09:30에 성남시 분당구에서 출발하여 {dest_title}(으)로 이동합니다. (전기차 주행시간 약 45분 소요, 10:15 현지 도착 예정)",
             "walkingInfo": "전기차 주행 (약 45분)",
             "mapUrls": make_map_urls(dest_title),
+            "parkingLot": main_parking_obj,
             "isVerificationNeeded": False
         },
         {
@@ -1368,14 +1559,33 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         arr_time_str = f"11:{arr_min:02d}" if arr_min < 60 else f"12:{arr_min-60:02d}"
         
         # [독립 1] 이동 전용 타임라인 항목
-        timeline_items.append({
-            "time": f"11:15 ~ {arr_time_str}",
-            "title": f"🚗 [장소 이동] {dest_title} ➔ {s_name} ({s_drive} 소요)",
-            "description": f"11:15에 {dest_title}에서 출발하여 {s_name}(으)로 이동합니다. ({s_drive} 소요, {arr_time_str} 현지 도착 및 주차 예정)",
-            "walkingInfo": f"전기차 주행 ({s_drive})",
-            "mapUrls": make_map_urls(s_name),
-            "isVerificationNeeded": False
-        })
+        is_foot1 = str(s_drive).startswith("도보")
+        s1_parking_obj = {
+            "name": s_parking,
+            "feeInfo": "무료 또는 지자체 주차 감면 혜택",
+            "convenience": f"{s_name} 입구 도보 1~2분 (평지 주차)",
+            "mapUrls": make_map_urls(s_parking)
+        } if not is_foot1 else None
+
+        if is_foot1:
+            timeline_items.append({
+                "time": f"11:15 ~ {arr_time_str}",
+                "title": f"🏃 [도보 이동] {dest_title} ➔ {s_name} ({s_drive})",
+                "description": f"11:15에 {dest_title} 산책 후 인근 도보로 {s_name}(으)로 이동합니다. ({s_drive})",
+                "walkingInfo": s_drive,
+                "mapUrls": make_map_urls(s_name),
+                "isVerificationNeeded": False
+            })
+        else:
+            timeline_items.append({
+                "time": f"11:15 ~ {arr_time_str}",
+                "title": f"🚘 [차량 이동] {dest_title} ➔ {s_name} ({s_drive} 소요)",
+                "description": f"11:15에 {dest_title}에서 출발하여 {s_name}(으)로 이동합니다. ({s_drive} 소요, {arr_time_str} 현지 도착 및 주차 예정)",
+                "walkingInfo": f"전기차 주행 ({s_drive})",
+                "mapUrls": make_map_urls(s_name),
+                "parkingLot": s1_parking_obj,
+                "isVerificationNeeded": False
+            })
         
         # [독립 2] 세부 탐방 전용 타임라인 항목
         if s_type == "전통시장":
@@ -1434,14 +1644,33 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         arr_t2_str = f"15:{arr_m2:02d}" if arr_m2 < 60 else f"16:{arr_m2-60:02d}"
 
         # [독립 1] 오후 이동 전용 타임라인 항목
-        timeline_items.append({
-            "time": f"15:15 ~ {arr_t2_str}",
-            "title": f"🚗 [오후 장소 이동] 디저트 카페 ➔ {s_name} ({s_drive} 소요)",
-            "description": f"15:15에 카페에서 출발하여 {s_name}(으)로 이동합니다. ({s_drive} 소요, {arr_t2_str} 현지 도착 및 주차 예정)",
-            "walkingInfo": f"전기차 주행 ({s_drive})",
-            "mapUrls": make_map_urls(s_name),
-            "isVerificationNeeded": False
-        })
+        is_foot2 = str(s_drive).startswith("도보")
+        s2_parking_obj = {
+            "name": s_parking,
+            "feeInfo": "무료 또는 지자체 주차 감면 혜택",
+            "convenience": f"{s_name} 입구 도보 1~2분 (평지 주차)",
+            "mapUrls": make_map_urls(s_parking)
+        } if not is_foot2 else None
+
+        if is_foot2:
+            timeline_items.append({
+                "time": f"15:15 ~ {arr_t2_str}",
+                "title": f"🏃 [도보 이동] 디저트 카페 ➔ {s_name} ({s_drive})",
+                "description": f"15:15에 카페에서 출발하여 인근 도보로 {s_name}(으)로 이동합니다. ({s_drive})",
+                "walkingInfo": s_drive,
+                "mapUrls": make_map_urls(s_name),
+                "isVerificationNeeded": False
+            })
+        else:
+            timeline_items.append({
+                "time": f"15:15 ~ {arr_t2_str}",
+                "title": f"🚘 [오후 장소 이동] 디저트 카페 ➔ {s_name} ({s_drive} 소요)",
+                "description": f"15:15에 카페에서 출발하여 {s_name}(으)로 이동합니다. ({s_drive} 소요, {arr_t2_str} 현지 도착 및 주차 예정)",
+                "walkingInfo": f"전기차 주행 ({s_drive})",
+                "mapUrls": make_map_urls(s_name),
+                "parkingLot": s2_parking_obj,
+                "isVerificationNeeded": False
+            })
 
         # [독립 2] 오후 세부 탐방 전용 타임라인 항목
         if s_type == "전통시장":
@@ -1501,41 +1730,57 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     ]
 
     for s_type, (s_name, s_drive, s_parking) in unique_spots:
-        all_parking_lots.append({
-            "category": f"{s_type} 경유지 주차장",
-            "name": s_parking,
-            "feeInfo": "무료 또는 지자체 주차 감면 혜택",
-            "convenience": f"{s_name} 입구 도보 1~2분 (평지 주차)",
-            "mapUrls": make_map_urls(s_parking)
-        })
+        if not str(s_drive).startswith("도보"):
+            all_parking_lots.append({
+                "category": f"{s_type} 경유지 주차장",
+                "name": s_parking,
+                "feeInfo": "무료 또는 지자체 주차 감면 혜택",
+                "convenience": f"{s_name} 입구 도보 1~2분 (평지 주차)",
+                "mapUrls": make_map_urls(s_parking)
+            })
+
+    # 공공데이터 API를 통해 실시간 EV 충전소 정보 조회 시도
+    api_ev_info = fetch_ev_charger_info(parking_name, target_place)
+    
+    ev_station_data = None
+    if api_ev_info:
+        ev_station_data = api_ev_info
+    elif "충전소" in parking_fee or "전기차" in parking_fee:
+        ev_station_data = {
+            "name": f"{parking_name} 내 EV 급속충전소",
+            "location": "주차장 전면 (식당/카페 도보 3~5분)",
+            "brand": ev_brand if 'ev_brand' in locals() else "환경부 공용 충전기",
+            "type": "DC 콤보 급속 충전기",
+            "mapUrls": make_map_urls(f"{parking_name} 전기차충전소")
+        }
 
     ret = {
-        "overview": f"성남시 분당구 출발 기준, [{dest_title}](으)로 떠나는 여유로운 당일치기 여행입니다. (관심사: {', '.join(interests)} 100% 반영)",
+        "overview": f"성남시 분당구 출발 기준, [{dest_title}](으)로 떠나는 여유로운 당일치기 힐링 여행입니다.",
         "restaurantCandidates": rest_list,
         "cafeCandidates": cafe_list,
         "timeline": timeline_items,
-        "estimatedCost": {
-            "lunch": lunch_budget * companion_count,
-            "admission": 10000,
-            "extra": 10000,
-            "total": (lunch_budget * companion_count) + 20000,
-            "details": [
+        "estimatedCost": (lambda: (
+            lambda base_details, base_total: {
+                "lunch": lunch_budget * companion_count,
+                "admission": 10000,
+                "extra": 10000 + (10000 * companion_count if any("온천" in i or "족욕" in i for i in interests) else 0),
+                "total": base_total,
+                "details": base_details
+            }
+        )(
+            [
                 {"item": f"점심 식사 ({dest_title} 추천 식당 {companion_count}인분)", "cost": lunch_budget * companion_count},
                 {"item": "입장료/주차비 (예상)", "cost": 10000},
-                {"item": f"카페 음료 ({cafe_list[0]['name']})", "cost": 10000}
-            ]
-        },
+                {"item": f"카페 음료 ({cafe_list[0]['name']})", "cost": 10000},
+            ] + ([{"item": f"족욕카페 체험비 ({companion_count}인)", "cost": 10000 * companion_count}] if any("온천" in i or "족욕" in i for i in interests) else []),
+            (lunch_budget * companion_count) + 20000 + (10000 * companion_count if any("온천" in i or "족욕" in i for i in interests) else 0)
+        ))(),
         "routePlan": {
             "totalDistance": "약 45km",
             "estimatedDriveTime": "약 50분",
             "parkingLots": all_parking_lots,
             "parkingLot": all_parking_lots[0],
-            "evChargingStation": {
-                "name": f"{parking_name} 내 EV 급속충전소",
-                "location": "주차장 전면 (식당/카페 도보 3~5분)",
-                "type": "100kW 급속 충전기 (DC 콤보)",
-                "mapUrls": make_map_urls(f"{parking_name} 전기차충전소")
-            }
+            "evChargingStation": ev_station_data
         },
         "targetPlace": dest_title
     }
@@ -1553,7 +1798,11 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         if region_tag and not r_name.startswith("["):
             r["name"] = f"[{region_tag}] {r_name}"
         r["mapUrls"] = make_map_urls(r["name"], region_tag)
-        if not r.get("certBadge"):
+        # 지자체 공공데이터 API 실시간 모범/으뜸업소 검증 시도
+        api_cert = verify_with_local_gov_api(r_name, region_tag)
+        if api_cert:
+            r["certBadge"] = api_cert
+        elif not r.get("certBadge"):
             badges = [
                 "🏛️ 해당 지자체 지정 으뜸맛집 및 모범업소",
                 "🏛️ 지자체 문화관광 공식 추천 향토식당",
@@ -1574,6 +1823,11 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             ]
             c["certBadge"] = badges[idx % len(badges)]
 
+    # 미반영 관심사 사유 자동 안내 주입
+    note = check_unmatched_interests(interests, dest_title, ret)
+    if note:
+        ret["unmatchedInterestsNote"] = note
+
     return ret
 
 # --- 웹 페이지 라우트 ---
@@ -1589,6 +1843,15 @@ def view_trip_page(trip_id):
     trip_data = trips.get(trip_id)
     if not trip_data:
         return render_template("index.html", error="존재하지 않거나 만료된 여행 일정입니다.")
+    
+    # 동적 미반영 관심사 안내 주입 보장
+    if isinstance(trip_data, dict) and "output" in trip_data:
+        interests = trip_data.get("input", {}).get("interests", [])
+        dest = trip_data.get("input", {}).get("destination", "")
+        note = check_unmatched_interests(interests, dest, trip_data["output"])
+        if note:
+            trip_data["output"]["unmatchedInterestsNote"] = note
+
     return render_template("trip.html", trip=trip_data, trip_id=trip_id)
 
 # --- API 라우트 ---
@@ -1596,7 +1859,7 @@ def view_trip_page(trip_id):
 def verify_password():
     """비밀번호 검증 API"""
     data = request.get_json() or {}
-    password = data.get("password", "").strip()
+    password = str(data.get("password", "")).strip()
     if password == APP_PASSWORD:
         return jsonify({"success": True})
     return jsonify({"success": False, "message": "비밀번호가 올바르지 않습니다."}), 401
@@ -1607,7 +1870,7 @@ def generate_trip():
     data = request.get_json() or {}
     
     # 1. 비밀번호 재검증 (보안)
-    password = data.get("password", "").strip()
+    password = str(data.get("password", "")).strip()
     if password != APP_PASSWORD:
         return jsonify({"success": False, "message": "비밀번호 인증이 필요합니다."}), 401
     
@@ -1693,8 +1956,17 @@ def get_trip_data(trip_id):
     trip_data = trips.get(trip_id)
     if not trip_data:
         return jsonify({"success": False, "message": "일정을 찾을 수 없습니다."}), 404
+        
+    if isinstance(trip_data, dict) and "output" in trip_data:
+        interests = trip_data.get("input", {}).get("interests", [])
+        dest = trip_data.get("input", {}).get("destination", "")
+        note = check_unmatched_interests(interests, dest, trip_data["output"])
+        if note:
+            trip_data["output"]["unmatchedInterestsNote"] = note
+            
     return jsonify({"success": True, "trip": trip_data})
 
 if __name__ == "__main__":
-    print("[SERVER] 어르신 당일치기 여행 도우미 서버 시작: http://127.0.0.1:5000")
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    print(f"[SERVER] 어르신 당일치기 여행 도우미 서버 시작: http://127.0.0.1:{port}")
+    app.run(host="0.0.0.0", port=port, debug=False)

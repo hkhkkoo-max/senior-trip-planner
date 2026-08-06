@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>당일치기 여행 일정 결과</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- marked.js CDN for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -32,11 +34,22 @@
                 </div>
             </div>
 
+            {% if trip.output.unmatchedInterestsNote %}
+            <div class="interest-notice-box">
+                <p class="notice-text">{{ trip.output.unmatchedInterestsNote }}</p>
+            </div>
+            {% endif %}
+
             <!-- 타임라인 (시간대별 세부 일정) -->
             <section class="section-block">
                 <h3 class="section-title">⏰ 시간대별 일과 일정</h3>
                 <div class="timeline">
+                    {% set prev_keyword = namespace(value='') %}
                     {% for item in trip.output.timeline %}
+                    {% set is_move = ('장소 이동' in item.title or '차량 이동' in item.title or '오후 장소 이동' in item.title or item.walkingInfo == '차량 이동') %}
+                    {% set is_duplicate = (item.placeKeyword and item.placeKeyword == prev_keyword.value) %}
+                    {% set is_lunch = (item.time == '12:30' or '점심' in item.title) and trip.output.restaurantCandidates %}
+                    {% set is_cafe = ('디저트' in item.title or '14:00' in item.time or '14:30' in item.time) and trip.output.cafeCandidates %}
                     <div class="timeline-item">
                         <div class="time-badge">{{ item.time }}</div>
                         <div class="timeline-content">
@@ -49,7 +62,7 @@
                             </div>
                             {% endif %}
 
-                            {% if item.mapUrls %}
+                            {% if item.mapUrls and not is_move and not is_duplicate and not is_lunch and not is_cafe %}
                             <div class="map-btn-group no-print">
                                 <a href="{{ item.mapUrls.kakao_route if item.mapUrls.kakao_route else item.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
                                     🗺️ 카카오맵으로 [ {{ item.title }} ] 길찾기
@@ -64,6 +77,48 @@
                             {% endif %}
                         </div>
                     </div>
+                    {% if item.placeKeyword %}{% set prev_keyword.value = item.placeKeyword %}{% endif %}
+
+                    <!-- 이동 타임라인 항목 직속 주차장 & EV 충전소 인라인 카드 배치 (1:1 완전 매칭) -->
+                    {% set parking = item.parkingLot %}
+                    {% set ev = trip.output.routePlan.evChargingStation if (loop.index0 < 2 and parking) else None %}
+                    {% if parking or ev %}
+                    <div class="parking-inline-box">
+                        {% if parking %}
+                        <div class="parking-inline-card">
+                            <h4>🅿️ 주차장 정보</h4>
+                            <p><strong>주차장명</strong>: {{ parking.name }}</p>
+                            <p><strong>주차 요금</strong>: {{ parking.feeInfo }}</p>
+                            <p><strong>이동 편의</strong>: {{ parking.convenience }}</p>
+                            {% if parking.mapUrls %}
+                            <div class="map-btn-group no-print mt-2">
+                                <a href="{{ parking.mapUrls.kakao_route if parking.mapUrls.kakao_route else parking.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
+                                    🗺️ 카카오맵으로 [ {{ parking.name }} ] 길찾기
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% if ev %}
+                        <div class="ev-inline-card">
+                            <h4>🔋 전기차(EV) 급속 충전소</h4>
+                            <p><strong>충전소명</strong>: {{ ev.name }}</p>
+                            <p><strong>위치</strong>: {{ ev.location }}</p>
+                            {% if ev.brand %}
+                            <p><strong>⚡ 충전기 브랜드</strong>: {{ ev.brand }}</p>
+                            {% endif %}
+                            <p><strong>사양</strong>: {{ ev.type }}</p>
+                            {% if ev.mapUrls %}
+                            <div class="map-btn-group no-print mt-2">
+                                <a href="{{ ev.mapUrls.kakao_route if ev.mapUrls.kakao_route else ev.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
+                                    ⚡ 카카오맵으로 [ {{ ev.name }} ] 위치보기
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
 
                     <!-- 12:30 점심 식사 일정 바로 아래에 추천 식당 3선 카드 배치 -->
                     {% if (item.time == "12:30" or "점심" in item.title) and trip.output.restaurantCandidates %}
@@ -165,84 +220,13 @@
                 </div>
             </section>
 
-            <!-- 경로 & 차량 이동 주차장 목록 & EV 충전소 정보 -->
-            <section class="section-block">
-                <h3 class="section-title">🅿️ 방문 장소별 전체 주차장 & 전기차(EV) 충전소 지도 연결</h3>
-                <div class="route-box">
-                    <div class="route-info">
-                        <p>🛣️ <strong>편도 예상 거리 / 주행시간</strong>: {{ trip.output.routePlan.totalDistance }} ({{ trip.output.routePlan.estimatedDriveTime }})</p>
-                    </div>
 
-                    {% if trip.output.routePlan.parkingLots %}
-                    {% for p_lot in trip.output.routePlan.parkingLots %}
-                    <div class="parking-card mb-3">
-                        <h4>🅿️ {{ p_lot.category if p_lot.category else '주차장' }}: {{ p_lot.name }}</h4>
-                        <p><strong>주차장명</strong>: {{ p_lot.name }}</p>
-                        <p><strong>주차 요금</strong>: {{ p_lot.feeInfo }}</p>
-                        <p><strong>주차 및 이동 편의</strong>: {{ p_lot.convenience }}</p>
 
-                        {% if p_lot.mapUrls %}
-                        <div class="map-btn-group no-print mt-2">
-                            <a href="{{ p_lot.mapUrls.kakao_route if p_lot.mapUrls.kakao_route else p_lot.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
-                                🗺️ 카카오맵으로 [ {{ p_lot.name }} ] 길찾기
-                            </a>
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                    {% elif trip.output.routePlan.parkingLot %}
-                    <div class="parking-card">
-                        <h4>🅿️ 추천 주차장 정보</h4>
-                        <p><strong>주차장명</strong>: {{ trip.output.routePlan.parkingLot.name }}</p>
-                        <p><strong>주차 요금</strong>: {{ trip.output.routePlan.parkingLot.feeInfo }}</p>
-                        <p><strong>주차 및 이동 편의</strong>: {{ trip.output.routePlan.parkingLot.convenience }}</p>
-
-                        {% if trip.output.routePlan.parkingLot.mapUrls %}
-                        <div class="map-btn-group no-print mt-2">
-                            <a href="{{ trip.output.routePlan.parkingLot.mapUrls.kakao_route if trip.output.routePlan.parkingLot.mapUrls.kakao_route else trip.output.routePlan.parkingLot.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
-                                🗺️ 카카오맵으로 [ {{ trip.output.routePlan.parkingLot.name }} ] 길찾기
-                            </a>
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-
-                    {% if trip.output.routePlan.evChargingStation %}
-                    <div class="ev-card">
-                        <h4>🔋 전기차(EV) 급속 충전소 정보</h4>
-                        <p><strong>충전소명</strong>: {{ trip.output.routePlan.evChargingStation.name }}</p>
-                        <p><strong>위치 및 도보</strong>: {{ trip.output.routePlan.evChargingStation.location }}</p>
-                        <p><strong>사양</strong>: {{ trip.output.routePlan.evChargingStation.type }}</p>
-
-                        {% if trip.output.routePlan.evChargingStation.mapUrls %}
-                        <div class="map-btn-group no-print mt-2">
-                            <a href="{{ trip.output.routePlan.evChargingStation.mapUrls.kakao_route if trip.output.routePlan.evChargingStation.mapUrls.kakao_route else trip.output.routePlan.evChargingStation.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
-                                ⚡ 카카오맵으로 [ {{ trip.output.routePlan.evChargingStation.name }} ] 위치보기
-                            </a>
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                </div>
-            </section>
-
-            <!-- 하단 액션 버튼 (공유 & 인쇄) -->
+            <!-- 하단 액션 버튼 (인쇄 및 PDF 저장) -->
             <div class="action-bar no-print">
-                <button class="btn btn-secondary btn-lg" onclick="copyShareUrl()">🔗 카카오톡 / 문자 링크 공유하기</button>
-                <button class="btn btn-primary btn-lg" onclick="window.print()">🖨️ 이 일정 인쇄 / PDF 저장</button>
+                <button class="btn btn-primary btn-lg" onclick="window.print()">🖨️ 이 일정 인쇄 / PDF로 저장하기</button>
             </div>
         </main>
     </div>
-
-    <script>
-        function copyShareUrl() {
-            const url = window.location.href;
-            navigator.clipboard.writeText(url).then(() => {
-                alert("가족이나 지인에게 보낼 주소가 복사되었습니다!\n카카오톡이나 문자메시지에 붙여넣어 공유하세요.\n\n" + url);
-            }).catch(err => {
-                alert("주소 복사 실패: " + url);
-            });
-        }
-    </script>
 </body>
 </html>

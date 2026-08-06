@@ -505,6 +505,55 @@ body {
     margin-bottom: 16px;
 }
 
+/* 타임라인 도착 항목 바로 아래 주차장 & EV 인라인 박스 */
+.parking-inline-box {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 8px 0 12px 0;
+}
+
+.parking-inline-card {
+    background: #EFF6FF;
+    border: 2px solid #BFDBFE;
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+}
+
+.parking-inline-card h4 {
+    font-size: 17px;
+    font-weight: 800;
+    color: #1D4ED8;
+    margin-bottom: 10px;
+}
+
+.parking-inline-card p {
+    font-size: 15px;
+    color: #1E3A8A;
+    margin-bottom: 4px;
+}
+
+.ev-inline-card {
+    background: #F0FDF4;
+    border: 2px solid #BBF7D0;
+    border-radius: var(--radius-md);
+    padding: 18px 20px;
+}
+
+.ev-inline-card h4 {
+    font-size: 17px;
+    font-weight: 800;
+    color: #15803D;
+    margin-bottom: 10px;
+}
+
+.ev-inline-card p {
+    font-size: 15px;
+    color: #14532D;
+    margin-bottom: 4px;
+}
+
+
 /* 타임라인 카페 일정 바로 아래 인라인 카페 박스 */
 .cafe-inline-box {
     background: #FDF4FF;
@@ -876,3 +925,22 @@ body {
         flex-direction: column;
     }
 }
+
+/* 미반영 관심사 사유 안내 박스 */
+.interest-notice-box {
+    background-color: #FEF3C7;
+    border: 2px solid #F59E0B;
+    border-radius: var(--radius-md);
+    padding: 16px 20px;
+    margin-top: 18px;
+    margin-bottom: 24px;
+}
+
+.interest-notice-box .notice-text {
+    color: #92400E;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.5;
+    margin: 0;
+}
+

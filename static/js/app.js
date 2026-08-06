@@ -24,9 +24,16 @@ async function checkPassword() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ password: passwordInput })
         });
-        const data = await response.json();
 
-        if (data.success) {
+        let data;
+        try {
+            data = await response.json();
+        } catch (e) {
+            errorDiv.innerText = "서버 응답 형식 오류가 발생했습니다. (Flask 서버 로그 확인 필요)";
+            return;
+        }
+
+        if (response.ok && data.success) {
             userPassword = passwordInput;
             document.getElementById("progressContainer").style.display = "block";
             nextStep(1);
@@ -34,7 +41,7 @@ async function checkPassword() {
             errorDiv.innerText = data.message || "비밀번호가 올바르지 않습니다.";
         }
     } catch (err) {
-        errorDiv.innerText = "서버 통신 중 오류가 발생했습니다.";
+        errorDiv.innerText = "서버 통신 중 오류가 발생했습니다. (Flask 서버가 실행 중인지 확인해 주세요)";
     }
 }
 
