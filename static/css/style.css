@@ -1,31 +1,31 @@
-/* ===== 모던 & 프리미엄 시니어 접근성 디자인 시스템 ===== */
+/* ===== 모던 & 프리미엄 시니어 감성 여행 디자인 시스템 ===== */
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
 :root {
-    /* 모던 세련된 컬러 파렛트 */
-    --primary-color: #3B82F6; /* 은은하고 세련된 소프트 블루 */
-    --primary-dark: #1D4ED8;
-    --primary-light: #EFF6FF;
+    /* 차분하고 따뜻한 가을 숲/자연 어스톤 파렛트 */
+    --primary-color: #854D0E; /* 차분하고 깊이 있는 골든 앰버 브라운 */
+    --primary-dark: #713F12;
+    --primary-light: #FEF3C7;
     
-    --accent-color: #10B981; /* 맑고 깔끔한 세이지 에메랄드 */
+    --accent-color: #059669; /* 눈이 편안한 숲속 세이지 에메랄드 */
     --accent-light: #ECFDF5;
     
-    --slate-dark: #0F172A; /* 부드러운 다크 텍스트 */
+    --slate-dark: #1E293B; /* 시인성 높은 소프트 블랙 차콜 */
     --slate-body: #334155;
     --slate-muted: #64748B;
     
-    --bg-main: #F8FAFC; /* 따뜻하고 부드러운 오프화이트 배경 */
+    --bg-main: #FAF8F5; /* 눈의 피로를 덜어주는 포근한 웜 아이보리/린넨 배경 */
     --card-bg: #FFFFFF;
     
-    --border-soft: #E2E8F0;
-    --border-hover: #CBD5E1;
+    --border-soft: #E7E0D6;
+    --border-hover: #D6CCC0;
     
-    --radius-lg: 24px;
-    --radius-md: 16px;
-    --radius-sm: 12px;
+    --radius-lg: 20px;
+    --radius-md: 14px;
+    --radius-sm: 10px;
     
-    --shadow-soft: 0 20px 25px -5px rgba(15, 23, 42, 0.05), 0 8px 10px -6px rgba(15, 23, 42, 0.02);
-    --shadow-hover: 0 25px 30px -5px rgba(15, 23, 42, 0.08), 0 10px 15px -5px rgba(15, 23, 42, 0.04);
+    --shadow-soft: 0 16px 24px -6px rgba(69, 26, 3, 0.06), 0 4px 12px -2px rgba(69, 26, 3, 0.02);
+    --shadow-hover: 0 20px 30px -6px rgba(69, 26, 3, 0.10), 0 8px 16px -4px rgba(69, 26, 3, 0.04);
 }
 
 * {
@@ -41,32 +41,33 @@ body {
     color: var(--slate-body);
     font-size: 18px;
     line-height: 1.65;
-    padding: 24px 16px;
+    padding: 20px 16px;
     letter-spacing: -0.01em;
 }
 
 .app-container {
-    max-width: 740px;
+    max-width: 720px;
     margin: 0 auto;
 }
 
 /* 헤더 */
 .header {
     text-align: center;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 
-/* 감성적인 여행 히어로 배너 카드 */
+/* 감성적인 가을 숲길 여행 히어로 배너 카드 (더 작고 아담한 컴팩트 크기) */
 .hero-banner-card {
     position: relative;
+    max-width: 540px;
     width: 100%;
-    border-radius: 24px;
+    margin: 0 auto 16px auto;
+    border-radius: 18px;
     overflow: hidden;
-    margin-bottom: 20px;
-    box-shadow: 0 16px 36px -8px rgba(37, 99, 235, 0.16), 0 4px 16px rgba(15, 23, 42, 0.04);
-    border: 1px solid rgba(226, 232, 240, 0.8);
-    background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 100%);
-    aspect-ratio: 16 / 8.4;
+    box-shadow: 0 12px 28px -6px rgba(69, 26, 3, 0.12), 0 4px 12px rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(214, 204, 192, 0.8);
+    background: #fef3c7;
+    aspect-ratio: 16 / 7.2;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -76,6 +77,7 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center 38%;
     display: block;
     transition: transform 0.4s ease;
 }
@@ -86,34 +88,34 @@ body {
 
 .hero-overlay-badge {
     position: absolute;
-    bottom: 14px;
+    bottom: 10px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(15, 23, 42, 0.72);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    color: #ffffff;
-    padding: 6px 18px;
+    background: rgba(30, 20, 10, 0.76);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #fef3c7;
+    padding: 5px 16px;
     border-radius: 20px;
-    font-size: 14.5px;
+    font-size: 13.5px;
     font-weight: 700;
     letter-spacing: -0.01em;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(254, 243, 199, 0.3);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
     white-space: nowrap;
 }
 
 .header .title {
-    font-size: 30px;
+    font-size: 28px;
     font-weight: 800;
     color: var(--slate-dark);
     letter-spacing: -0.02em;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     word-break: keep-all;
 }
 
 .header .subtitle {
-    font-size: 16.5px;
+    font-size: 16px;
     font-weight: 500;
     color: var(--slate-muted);
     line-height: 1.5;
@@ -136,21 +138,21 @@ body {
 }
 
 .back-link:hover {
-    background: #DBEAFE;
+    background: #FDE68A;
 }
 
 /* 프로그레스 바 */
 .progress-container {
-    background: #E2E8F0;
+    background: #E7E0D6;
     border-radius: 30px;
-    height: 22px;
+    height: 20px;
     position: relative;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
     overflow: hidden;
 }
 
 .progress-bar {
-    background: linear-gradient(90deg, #3B82F6, #10B981);
+    background: linear-gradient(90deg, #B45309, #059669);
     height: 100%;
     width: 25%;
     border-radius: 30px;

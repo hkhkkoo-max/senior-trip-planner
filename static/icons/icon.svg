@@ -1,52 +1,91 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
   <defs>
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2563eb" />
-      <stop offset="100%" stop-color="#1d4ed8" />
+    <!-- 고급스럽고 차분한 가을 숲/여행 그라데이션 -->
+    <linearGradient id="bgGradWarm" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#451a03" />
+      <stop offset="50%" stop-color="#78350f" />
+      <stop offset="100%" stop-color="#b45309" />
     </linearGradient>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.25"/>
+
+    <!-- 따뜻한 햇살 방사형 그라데이션 -->
+    <radialGradient id="sunGlow" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#fef3c7" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#fde68a" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- 단풍 잎 & 숲 색상 그라데이션 -->
+    <linearGradient id="leafGradLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#9a3412" />
+    </linearGradient>
+    <linearGradient id="leafGradRight" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ea580c" />
+      <stop offset="100%" stop-color="#7c2d12" />
+    </linearGradient>
+
+    <!-- 부드러운 그림자 -->
+    <filter id="iconShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.35"/>
     </filter>
   </defs>
+
+  <!-- 메인 앱 아이콘 스퀘어클 배경 (둥근 모서리) -->
+  <rect width="512" height="512" rx="115" fill="url(#bgGradWarm)" />
+
+  <!-- 내부 프레임 & 햇살 원형 -->
+  <circle cx="256" cy="245" r="185" fill="#fdfbf7" opacity="0.97" filter="url(#iconShadow)" />
+
+  <!-- 숲속 햇살 번짐 효과 -->
+  <circle cx="256" cy="220" r="150" fill="url(#sunGlow)" />
+
+  <!-- 메타세콰이어 가을 숲길 터널 일러스트 -->
+  <!-- 1. 원경 길 & 햇살 속 자전거 여행자 -->
+  <path d="M 215,350 L 250,230 L 262,230 L 297,350 Z" fill="#e2d9cc" />
   
-  <!-- 배경 스퀘어클 -->
-  <rect width="512" height="512" rx="110" fill="url(#bgGrad)" />
-  
-  <!-- 내부 원형 배경 -->
-  <g filter="url(#shadow)">
-    <circle cx="256" cy="256" r="180" fill="#ffffff" opacity="0.96"/>
-    
-    <!-- 자동차 일러스트 -->
-    <g transform="translate(136, 150) scale(0.95)">
-      <!-- 차체 -->
-      <path d="M40 130 C40 110, 65 80, 95 65 L155 35 C175 25, 205 25, 225 35 L285 65 C315 80, 340 110, 340 130 L345 170 C345 180, 335 190, 325 190 L55 190 C45 190, 35 180, 35 170 Z" fill="#2563eb"/>
-      
-      <!-- 앞유리창 -->
-      <path d="M100 75 L155 45 C170 38, 210 38, 225 45 L280 75 C295 85, 305 105, 305 120 L75 120 C75 105, 85 85, 100 75 Z" fill="#e0f2fe"/>
-      
-      <!-- 헤드라이트 -->
-      <circle cx="75" cy="155" r="16" fill="#facc15" />
-      <circle cx="305" cy="155" r="16" fill="#facc15" />
-      
-      <!-- 범퍼 -->
-      <rect x="130" y="145" width="120" height="22" rx="10" fill="#1e293b" opacity="0.8"/>
-      
-      <!-- 번호판 -->
-      <rect x="160" y="172" width="60" height="12" rx="4" fill="#ffffff"/>
-      <text x="190" y="181" font-size="8" font-family="sans-serif" font-weight="bold" fill="#2563eb" text-anchor="middle">분당출발</text>
-      
-      <!-- 바퀴 -->
-      <rect x="45" y="185" width="45" height="25" rx="10" fill="#334155"/>
-      <rect x="290" y="185" width="45" height="25" rx="10" fill="#334155"/>
-    </g>
-    
-    <!-- 전기차 번개 & 나뭇잎 아이콘 -->
-    <g transform="translate(230, 95) scale(0.9)">
-      <circle cx="28" cy="28" r="28" fill="#10b981"/>
-      <path d="M30 8 L16 30 L26 30 L22 48 L38 24 L28 24 Z" fill="#ffffff"/>
-    </g>
+  <!-- 원경 여행자 실루엣 -->
+  <g transform="translate(256, 230) scale(0.65)">
+    <!-- 자전거 바퀴 -->
+    <circle cx="-12" cy="18" r="8" fill="none" stroke="#451a03" stroke-width="2.5" />
+    <circle cx="12" cy="18" r="8" fill="none" stroke="#451a03" stroke-width="2.5" />
+    <line x1="-12" y1="18" x2="0" y2="18" stroke="#451a03" stroke-width="2" />
+    <line x1="0" y1="18" x2="8" y2="8" stroke="#451a03" stroke-width="2" />
+    <line x1="-12" y1="18" x2="-4" y2="8" stroke="#451a03" stroke-width="2" />
+    <!-- 여행자 몸 & 배낭 -->
+    <circle cx="2" cy="-4" r="5" fill="#451a03" />
+    <path d="M -4,2 C -4,2 0,10 6,10 L 4,18 L -2,18 Z" fill="#451a03" />
+    <circle cx="-5" cy="4" r="4" fill="#9a3412" /> <!-- 배낭 -->
   </g>
-  
-  <!-- 텍스트 라벨 -->
-  <text x="256" y="425" font-size="34" font-family="'Pretendard', sans-serif" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="1">당일치기 여행</text>
+
+  <!-- 2. 양쪽 웅장한 가을 메타세콰이어 나무 기둥들 -->
+  <!-- 왼쪽 나무 기둥들 -->
+  <path d="M 125,365 L 148,150 L 165,150 L 155,365 Z" fill="#451a03" />
+  <path d="M 175,360 L 190,175 L 202,175 L 195,360 Z" fill="#572205" />
+  <path d="M 215,355 L 223,200 L 230,200 L 226,355 Z" fill="#712e09" />
+
+  <!-- 오른쪽 나무 기둥들 -->
+  <path d="M 387,365 L 364,150 L 347,150 L 357,365 Z" fill="#451a03" />
+  <path d="M 337,360 L 322,175 L 310,175 L 317,360 Z" fill="#572205" />
+  <path d="M 297,355 L 289,200 L 282,200 L 286,355 Z" fill="#712e09" />
+
+  <!-- 3. 풍성하게 덮인 황금빛/주황빛 가을 단풍 숲 터널 캐노피 -->
+  <!-- 왼쪽 단풍 캐노피 -->
+  <path d="M 100,240 C 90,130 160,80 256,125 C 210,110 140,160 120,240 Z" fill="url(#leafGradLeft)" />
+  <path d="M 120,200 C 130,110 190,75 256,110 C 220,95 165,130 140,200 Z" fill="#f59e0b" opacity="0.9" />
+
+  <!-- 오른쪽 단풍 캐노피 -->
+  <path d="M 412,240 C 422,130 352,80 256,125 C 302,110 372,160 392,240 Z" fill="url(#leafGradRight)" />
+  <path d="M 392,200 C 382,110 322,75 256,110 C 292,95 347,130 372,200 Z" fill="#ea580c" opacity="0.85" />
+
+  <!-- 상단 중앙 터널 아치 장식 -->
+  <path d="M 180,95 Q 256,65 332,95 Q 256,80 180,95 Z" fill="#b45309" />
+
+  <!-- 떨어지는 가을 잎사귀들 (낭만적인 분위기) -->
+  <path d="M 200,160 Q 206,155 212,160 Q 206,165 200,160 Z" fill="#ea580c" />
+  <path d="M 305,170 Q 311,164 317,170 Q 311,176 305,170 Z" fill="#d97706" />
+  <path d="M 240,145 Q 244,140 248,145 Q 244,150 240,145 Z" fill="#f59e0b" />
+
+  <!-- 4. 하단 레이블: 시니어 힐링 여행 -->
+  <rect x="156" y="380" width="200" height="38" rx="19" fill="#451a03" />
+  <text x="256" y="405" font-size="18" font-family="'Pretendard', sans-serif" font-weight="800" fill="#fef3c7" text-anchor="middle" letter-spacing="1">힐링 당일치기</text>
 </svg>
