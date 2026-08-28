@@ -50,38 +50,20 @@ body {
 /* 헤더 */
 .header {
     text-align: center;
-    margin-bottom: 22px;
+    margin-bottom: 24px;
 }
 
-.header .title {
-    font-size: 31px;
-    font-weight: 800;
-    color: var(--slate-dark);
-    letter-spacing: -0.02em;
-    margin-bottom: 8px;
-    word-break: keep-all;
-}
-
-.header .subtitle {
-    font-size: 17px;
-    font-weight: 600;
-    color: #475569;
-    line-height: 1.55;
-    margin-bottom: 18px;
-    word-break: keep-all;
-}
-
-/* 감성적인 가을 숲길 여행 히어로 배너 카드 (하단 박스와 100% 너비 일치) */
+/* 감성적인 자동차 드라이브 여행 히어로 배너 카드 (하단 박스와 100% 너비 일치) */
 .hero-banner-card {
     position: relative;
     width: 100%;
-    margin: 0;
+    margin-bottom: 20px;
     border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: 0 12px 28px -6px rgba(69, 26, 3, 0.12), 0 4px 12px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 12px 28px -6px rgba(37, 99, 235, 0.12), 0 4px 12px rgba(0, 0, 0, 0.03);
     border: 1px solid rgba(214, 204, 192, 0.8);
-    background: #fef3c7;
-    height: 195px;
+    background: linear-gradient(135deg, #e0f2fe 0%, #fef3c7 100%);
+    height: 210px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -91,9 +73,31 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center 42%;
     display: block;
     transition: transform 0.4s ease;
+}
+
+.hero-banner-card:hover .hero-illustration {
+    transform: scale(1.02);
+}
+
+.header .title {
+    font-size: 30px;
+    font-weight: 800;
+    color: var(--slate-dark);
+    letter-spacing: -0.02em;
+    margin-top: 4px;
+    margin-bottom: 8px;
+    word-break: keep-all;
+}
+
+.header .subtitle {
+    font-size: 16.5px;
+    font-weight: 600;
+    color: #475569;
+    line-height: 1.55;
+    margin-bottom: 0;
+    word-break: keep-all;
 }
 
 .hero-banner-card:hover .hero-illustration {
