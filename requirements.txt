@@ -3,3 +3,5 @@ google-genai
 python-dotenv
 requests
 gunicorn
+beautifulsoup4
+lxml

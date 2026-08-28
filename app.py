@@ -4,7 +4,7 @@ import re
 import uuid
 from datetime import datetime
 from urllib.parse import quote
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory, make_response
 from dotenv import load_dotenv
 
 # .env 환경변수 로드
@@ -12,6 +12,8 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "senior_trip_secret_2026")
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 # 환경변수 설정값 (보안: CLI/로그에 절대 그대로 노출되지 않아야 함)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -175,6 +177,45 @@ def fetch_ev_charger_info(parking_name, region_tag=""):
 
     # Fallback 기본 데이터 (API 키 미설정 시 또는 매칭 실패 시)
     return None
+
+# 🕵️‍♂️ 브라우저 위장 User-Agent 헤더 (비밀 명찰)
+STEALTH_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+}
+
+def get_official_tourism_info(restaurant_name, destination=""):
+    """서울/경기 목적지 자동 판별 및 공식 관광 포털(Visit Seoul / GG Tour) 연동 정보 생성"""
+    clean_name = clean_place_name(restaurant_name)
+    encoded_name = quote(clean_name)
+    
+    # 서울 주요 지역 판별 키워드
+    seoul_keywords = [
+        "서울", "종로", "중구", "광화문", "세종로", "시청", "을지로", "명동", "남산", "덕수궁", "경복궁",
+        "창경궁", "창덕궁", "인사동", "익선동", "삼청동", "청계천", "동대문", "DDP", "남대문", "서울역",
+        "용산", "이촌", "한남", "송파", "잠실", "석촌", "올림픽", "마포", "서대문", "은평", "여의도",
+        "영등포", "강남", "서초", "성수", "서울숲", "뚝섬", "반포", "한강", "진관사"
+    ]
+    is_seoul = any(kw in destination or kw in restaurant_name for kw in seoul_keywords)
+    
+    if is_seoul:
+        return {
+            "isSeoul": True,
+            "portalName": "Visit Seoul (서울맛집모아)",
+            "url": "https://korean.visitseoul.net/restaurants",
+            "searchUrl": f"https://korean.visitseoul.net/restaurants?keyword={encoded_name}",
+            "badgeText": "🏛️ 서울관광재단 공식 인증 맛집"
+        }
+    else:
+        # 경기 지역 (경기관광공사 GG Tour)
+        return {
+            "isSeoul": False,
+            "portalName": "경기관광 (GG Tour)",
+            "url": "https://ggtour.or.kr/travel-info/restaurant?area-select=0&keyword-input=",
+            "searchUrl": f"https://ggtour.or.kr/travel-info/restaurant?area-select=0&keyword-input={encoded_name}",
+            "badgeText": "🏛️ 경기관광공사 공식 추천 맛집"
+        }
 
 def verify_with_local_gov_api(restaurant_name, region_tag=""):
     """경기데이터드림 / 서울열린데이터광장 API를 이용한 지자체 모범/으뜸업소 실시간 검증"""
@@ -493,16 +534,12 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             # 식당 후보 지도 URL 및 지자체 인증 배지 주입
             for idx, r in enumerate(result.get("restaurantCandidates", [])):
                 r["mapUrls"] = make_map_urls(r["name"])
+                r["tourismInfo"] = get_official_tourism_info(r.get("name", ""), target_place)
                 api_cert = verify_with_local_gov_api(r.get("name", ""), target_place)
                 if api_cert:
                     r["certBadge"] = api_cert
                 elif not r.get("certBadge"):
-                    badges = [
-                        "🏛️ 지자체 지정 으뜸맛집 및 모범음식점",
-                        "🏛️ 해당 시/군/구 문화관광 우수 추천업소",
-                        "🏛️ 경기도 으뜸맛집 및 향토음식점 지정"
-                    ]
-                    r["certBadge"] = badges[idx % len(badges)]
+                    r["certBadge"] = r["tourismInfo"]["badgeText"]
 
             # 카페 후보 지도 URL 및 인증 배지 주입
             for idx, c in enumerate(result.get("cafeCandidates", [])):
@@ -927,8 +964,8 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
                 {"name": "파주 삼거리부대찌개", "phone": "031-941-4328", "menu": "전통 삼거리 부대찌개 정식", "walkingInfo": "도보 2분 (100m)", "features": "50년 전통 파주 으뜸 명가", "certBadge": "🏛️ 파주시 전통 으뜸맛집", "mapUrls": make_map_urls("파주 삼거리부대찌개")}
             ]
 
-    # [서울 종로구 / 경복궁 / 서촌]
-    elif "종로" in target_place or "경복궁" in target_place or "서촌" in target_place:
+    # [서울 종로구 / 광화문 / 경복궁 / 서촌 / 북촌 / 인사동 / 익선동]
+    elif any(k in target_place for k in ["종로", "광화문", "경복궁", "서촌", "북촌", "인사동", "익선동", "세종로", "삼청동"]):
         dest_title = "서울 종로구 경복궁 & 서촌"
         parking_name = "경복궁 지하 공영주차장"
         parking_fee = "1시간 3,000원 (전기차 50% 할인)"
@@ -964,9 +1001,9 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
                 {"name": "평양면옥 종로점", "phone": "02-736-5500", "menu": "평양냉면 & 어복쟁반", "walkingInfo": "도보 2분 (100m)", "features": "자극적이지 않은 진한 전통 육수", "certBadge": "🏛️ 지자체 지정 모범업소", "mapUrls": make_map_urls("평양면옥 종로점")}
             ]
 
-    # [서울 중구 / 남산골한옥마을 / 남산타워 / 명동]
-    elif "중구" in target_place or "남산" in target_place or "명동" in target_place:
-        dest_title = "서울 중구 남산골 한옥마을"
+    # [서울 중구 / 남대문 / 남산골한옥마을 / 남산타워 / 명동 / 시청 / 을지로 / 덕수궁]
+    elif any(k in target_place for k in ["중구", "남대문", "명동", "남산", "시청", "을지로", "덕수궁", "청계천", "동대문", "DDP", "서울역"]):
+        dest_title = "서울 중구 남산골 한옥마을 & 남대문"
         parking_name = "남산골 한옥마을 공영주차장"
         parking_fee = "1시간 3,000원 (전기차 50% 할인)"
         
@@ -1002,7 +1039,7 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             ]
 
     # [서울 용산구 / 국립중앙박물관 / 용산가족공원]
-    elif "용산" in target_place or "이촌" in target_place:
+    elif any(k in target_place for k in ["용산", "이촌", "한남", "해방촌", "국립중앙박물관", "전쟁기념관"]):
         dest_title = "서울 용산구 국립중앙박물관 & 용산가족공원"
         parking_name = "국립중앙박물관 옥외 주차장"
         parking_fee = "1시간 2,000원 (전기차 50% 할인)"
@@ -1798,17 +1835,13 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         if region_tag and not r_name.startswith("["):
             r["name"] = f"[{region_tag}] {r_name}"
         r["mapUrls"] = make_map_urls(r["name"], region_tag)
+        r["tourismInfo"] = get_official_tourism_info(r_name, dest_title)
         # 지자체 공공데이터 API 실시간 모범/으뜸업소 검증 시도
         api_cert = verify_with_local_gov_api(r_name, region_tag)
         if api_cert:
             r["certBadge"] = api_cert
         elif not r.get("certBadge"):
-            badges = [
-                "🏛️ 해당 지자체 지정 으뜸맛집 및 모범업소",
-                "🏛️ 지자체 문화관광 공식 추천 향토식당",
-                "🏛️ 경기도 으뜸맛집 인증업소"
-            ]
-            r["certBadge"] = badges[idx % len(badges)]
+            r["certBadge"] = r["tourismInfo"]["badgeText"]
 
     for idx, c in enumerate(ret["cafeCandidates"]):
         c_name = c["name"]
@@ -1829,6 +1862,20 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         ret["unmatchedInterestsNote"] = note
 
     return ret
+
+# --- PWA (Progressive Web App) 정적 라우트 ---
+@app.route("/manifest.json")
+def serve_manifest():
+    """PWA 매니페스트 파일 서빙"""
+    return send_from_directory(os.path.join(app.root_path, "static"), "manifest.json", mimetype="application/manifest+json")
+
+@app.route("/sw.js")
+def serve_service_worker():
+    """PWA 서비스 워커 파일 서빙 (Service-Worker-Allowed 헤더 포함)"""
+    response = make_response(send_from_directory(os.path.join(app.root_path, "static"), "sw.js", mimetype="application/javascript"))
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 # --- 웹 페이지 라우트 ---
 @app.route("/")
@@ -1881,15 +1928,22 @@ def generate_trip():
     interests = data.get("interests", ["자연/둘레길"])
     companion_count = int(data.get("companionCount", 2))
     
-    # 2-1. 지원 범위 이외 지역 검증 (분당 출발 1.5시간 이내 범위 제약)
+    # 2-1. 지원 범위 이외 지역 검증 (분당 출발 2시간 이내 서울/경기/인천 전역 지원)
     valid_region_keywords = [
-        "종로", "경복궁", "서촌", "북촌", "중구", "명동", "남산", "한옥마을", "용산", "이촌",
-        "송파", "잠실", "석촌", "올림픽", "마포", "서대문", "안산", "하늘공원", "은평", "진관사",
-        "안양", "예술공원", "의정부", "직동", "과천", "의왕", "왕송", "백운", "수원", "행궁",
-        "행리단", "화성", "성남", "분당", "율동", "용인", "민속촌", "와우정사", "광주", "남한산성",
-        "화담숲", "이천", "설봉", "여주", "신륵사", "가평", "아침고요", "수목원", "양평", "두물머리",
-        "세미원", "포천", "산정호수", "파주", "마장호수", "출렁다리", "헤이리", "시흥", "갯골",
-        "물왕", "김포", "라베니체", "금빛수로", "부천", "상동호수", "평택", "평택호", "인천", "송도", "소래포구"
+        # 서울 25개 전 자치구
+        "서울", "종로", "중구", "용산", "성동", "광진", "동대문", "중랑", "성북", "강북", "도봉", "노원", "은평", "서대문", "마포", "양천", "강서", "구로", "금천", "영등포", "동작", "관악", "서초", "강남", "송파", "강동",
+        # 서울 도심 & 핵심 랜드마크 & 재래시장
+        "남대문", "숭례문", "남대문시장", "동대문시장", "광장시장", "통인시장", "망원시장", "노량진", "가락시장",
+        "광화문", "세종로", "시청", "을지로", "명동", "남산", "남산타워", "DDP", "경복궁", "서촌", "북촌", "인사동", "익선동", "삼청동", "청계천", "덕수궁", "창경궁", "창덕궁", "운현궁", "종묘",
+        "서울역", "용산역", "청량리", "여의도", "샛강", "한강", "반포", "뚝섬", "성수", "서울숲", "잠실", "석촌", "올림픽", "하늘공원", "상암", "홍대", "신촌", "안산", "진관사", "한옥마을",
+        # 경기 남부/동남부 (분당 인접)
+        "성남", "분당", "판교", "율동", "남한산성", "용인", "민속촌", "에버랜드", "와우정사", "기흥", "수지", "광주", "화담숲", "수원", "행궁", "행리단", "화성", "제부도", "궁평항", "이천", "설봉", "도예촌", "여주", "신륵사", "프리미엄", "강천섬", "안성", "평택", "평택호", "오산",
+        # 경기 서부/서남부
+        "안양", "예술공원", "의왕", "왕송", "백운", "과천", "서울대공원", "군포", "반월", "안산", "대부도", "시흥", "갯골", "오이도", "물왕", "광명", "부천", "상동호수", "김포", "라베니체", "금빛수로",
+        # 경기 동북부/북부 힐링 명소
+        "가평", "아침고요", "자라섬", "수목원", "양평", "두물머리", "세미원", "용문사", "남양주", "물의정원", "다산", "하남", "미사", "구리", "포천", "산정호수", "아트밸리", "허브아일랜드", "파주", "마장호수", "출렁다리", "헤이리", "임진각", "의정부", "직동", "고양", "일산", "호수공원", "행주산성", "양주", "동두천", "소요산", "연천",
+        # 인천 전역 및 주요 명소
+        "인천", "송도", "센트럴파크", "소래포구", "월미도", "차이나타운", "영종도", "을왕리", "강화도", "부평", "계양", "미추홀", "연수", "남동", "서구", "중구", "동구"
     ]
     
     is_recommend = destination in ["추천", "알아서 추천", "", "자동추천", "알아서"]

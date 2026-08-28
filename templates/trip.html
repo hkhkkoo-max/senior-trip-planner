@@ -4,7 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>당일치기 여행 일정 결과</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- PWA (Progressive Web App) 설정 -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="당일치기도우미">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icons/icon.svg') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260828_1945">
     <!-- marked.js CDN for Markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -129,6 +140,7 @@
                         <div class="restaurant-grid">
                             {% for rest in trip.output.restaurantCandidates %}
                             <div class="restaurant-card">
+                                <!-- 1번째 줄: 상호명 (좌) & 전화번호/전화연결 (우) -->
                                 <div class="rest-header">
                                     <h4>{{ loop.index }}. {{ rest.name }}</h4>
                                     <div class="phone-box">
@@ -136,22 +148,30 @@
                                         <a href="tel:{{ rest.phone }}" class="btn-call no-print">전화연결</a>
                                     </div>
                                 </div>
-                                {% if rest.certBadge %}
-                                <div class="cert-badge">
-                                    🏛️ <strong>지자체 인증</strong>: {{ rest.certBadge }}
+
+                                <!-- 2번째 줄: 지자체 인증 (좌) & 카카오맵 길찾기 (우) 나란히 배치 -->
+                                <div class="rest-sub-row no-print" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                                    {% if rest.certBadge %}
+                                    <div class="cert-badge" style="margin: 0;">
+                                        🏛️ <strong>지자체 인증</strong>: {{ rest.certBadge }}
+                                    </div>
+                                    {% else %}
+                                    <div></div>
+                                    {% endif %}
+
+                                    {% if rest.mapUrls %}
+                                    <div class="map-btn-group no-print" style="margin: 0;">
+                                        <a href="{{ rest.mapUrls.kakao_route if rest.mapUrls.kakao_route else rest.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao" style="padding: 6px 14px; font-size: 14px; font-weight: 800; border-radius: 20px; text-decoration: none; display: inline-flex; align-items: center;">
+                                            🗺️ 카카오맵 길찾기
+                                        </a>
+                                    </div>
+                                    {% endif %}
                                 </div>
-                                {% endif %}
+
+                                <!-- 3번째 줄 이하: 메뉴, 도보, 특징 -->
                                 <p class="rest-menu">🍲 <strong>대표 메뉴</strong>: {{ rest.menu }}</p>
                                 <p class="rest-walk">🚶 <strong>주차장 도보</strong>: {{ rest.walkingInfo }}</p>
                                 <p class="rest-feat">✨ <strong>특징</strong>: {{ rest.features }}</p>
-                                
-                                {% if rest.mapUrls %}
-                                <div class="map-btn-group no-print mt-2">
-                                    <a href="{{ rest.mapUrls.kakao_route if rest.mapUrls.kakao_route else rest.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
-                                        🗺️ 카카오맵으로 [ {{ rest.name }} ] 길찾기
-                                    </a>
-                                </div>
-                                {% endif %}
                             </div>
                             {% endfor %}
                         </div>
@@ -167,6 +187,7 @@
                         <div class="cafe-grid">
                             {% for cafe in trip.output.cafeCandidates %}
                             <div class="cafe-card">
+                                <!-- 1번째 줄: 상호명 (좌) & 전화번호/전화연결 (우) -->
                                 <div class="cafe-header">
                                     <h4>{{ loop.index }}. {{ cafe.name }}</h4>
                                     <div class="phone-box">
@@ -174,22 +195,30 @@
                                         <a href="tel:{{ cafe.phone }}" class="btn-call btn-call-cafe no-print">전화연결</a>
                                     </div>
                                 </div>
-                                {% if cafe.certBadge %}
-                                <div class="cert-badge">
-                                    🏛️ <strong>지자체/관광 인증</strong>: {{ cafe.certBadge }}
+
+                                <!-- 2번째 줄: 지자체/관광 인증 (좌) & 카카오맵 길찾기 (우) 나란히 배치 -->
+                                <div class="cafe-sub-row no-print" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                                    {% if cafe.certBadge %}
+                                    <div class="cert-badge" style="margin: 0;">
+                                        🏛️ <strong>지자체/관광 인증</strong>: {{ cafe.certBadge }}
+                                    </div>
+                                    {% else %}
+                                    <div></div>
+                                    {% endif %}
+
+                                    {% if cafe.mapUrls %}
+                                    <div class="map-btn-group no-print" style="margin: 0;">
+                                        <a href="{{ cafe.mapUrls.kakao_route if cafe.mapUrls.kakao_route else cafe.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao" style="padding: 6px 14px; font-size: 14px; font-weight: 800; border-radius: 20px; text-decoration: none; display: inline-flex; align-items: center;">
+                                            🗺️ 카카오맵 길찾기
+                                        </a>
+                                    </div>
+                                    {% endif %}
                                 </div>
-                                {% endif %}
+
+                                <!-- 3번째 줄 이하: 디저트, 도보, 특징 -->
                                 <p class="cafe-dessert">☕ <strong>디저트 & 음료</strong>: {{ cafe.dessert }}</p>
                                 <p class="cafe-walk">🚶 <strong>도보 거리</strong>: {{ cafe.walkingInfo }}</p>
                                 <p class="cafe-feat">✨ <strong>특징 및 뷰</strong>: {{ cafe.features }}</p>
-                                
-                                {% if cafe.mapUrls %}
-                                <div class="map-btn-group no-print mt-2">
-                                    <a href="{{ cafe.mapUrls.kakao_route if cafe.mapUrls.kakao_route else cafe.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
-                                        🗺️ 카카오맵으로 [ {{ cafe.name }} ] 길찾기
-                                    </a>
-                                </div>
-                                {% endif %}
                             </div>
                             {% endfor %}
                         </div>
@@ -228,5 +257,20 @@
             </div>
         </main>
     </div>
+
+    <!-- PWA Service Worker 등록 -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((reg) => {
+                        console.log('[PWA] Service Worker 등록 성공! Scope:', reg.scope);
+                    })
+                    .catch((err) => {
+                        console.log('[PWA] Service Worker 등록 실패:', err);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>

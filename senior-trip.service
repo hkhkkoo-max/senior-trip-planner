@@ -1,0 +1,31 @@
+[Unit]
+Description=Gunicorn daemon for Senior Trip Planner (어르신 맞춤 당일치기 여행 도우미)
+After=network.target
+
+[Service]
+# Oracle Cloud Ubuntu 기본 사용자 계정
+User=ubuntu
+Group=www-data
+
+# 프로젝트 디렉터리 경로
+WorkingDirectory=/home/ubuntu/senior-trip-planner
+
+# 가상환경 및 환경 변수 파일 로드 (.env)
+Environment="PATH=/home/ubuntu/senior-trip-planner/venv/bin:/usr/local/bin:/usr/bin"
+EnvironmentFile=/home/ubuntu/senior-trip-planner/.env
+
+# Gunicorn 실행 명령 (3 워커 프로세스, 127.0.0.1:5000 내부 바인딩)
+ExecStart=/home/ubuntu/senior-trip-planner/venv/bin/gunicorn \
+    --workers 3 \
+    --bind 127.0.0.1:5000 \
+    --timeout 60 \
+    --access-logfile /home/ubuntu/senior-trip-planner/access.log \
+    --error-logfile /home/ubuntu/senior-trip-planner/error.log \
+    app:app
+
+# 프로세스 다운 시 5초 후 자동 재시작
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

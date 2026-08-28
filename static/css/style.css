@@ -617,9 +617,33 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     flex-wrap: wrap;
     gap: 8px;
+}
+
+/* 2번째 줄: 지자체 인증 (좌) + 카카오맵 길찾기 (우) 완벽한 가로 정렬 */
+.rest-sub-row, .cafe-sub-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.rest-sub-row .cert-badge, .cafe-sub-row .cert-badge {
+    margin: 0 !important;
+    font-size: 14px;
+    padding: 6px 12px;
+}
+
+.rest-sub-row .btn-kakao, .cafe-sub-row .btn-kakao {
+    padding: 6px 14px !important;
+    font-size: 14px !important;
+    font-weight: 800 !important;
+    border-radius: 20px !important;
+    white-space: nowrap;
 }
 
 .rest-header h4, .cafe-header h4 {
@@ -914,13 +938,320 @@ body {
     .app-container { max-width: 100%; }
 }
 
+/* ===== 모바일 앱(PWA) 전용: 가로폭 440px & 찌그러짐 없는 원스크린 최적화 ===== */
 @media (max-width: 600px) {
-    .option-grid, .checkbox-grid, .grid-2 {
-        grid-template-columns: 1fr;
+    body {
+        padding: 12px 12px 20px 12px;
+        background-color: #F1F5F9;
     }
+
+    /* 가로폭을 단정하게 440px로 제한하여 스마트폰 앱 화면에 최적화 */
+    .app-container {
+        max-width: 440px;
+        margin: 0 auto;
+        width: 100%;
+    }
+
+    /* 헤더: 제목 폰트 크기 대폭 확대 */
+    .header {
+        margin-bottom: 14px;
+        text-align: center;
+    }
+
+    .header .title {
+        font-size: 25px !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.02em;
+        color: #0F172A;
+        margin-bottom: 0;
+    }
+
+    .header .subtitle {
+        display: none; /* 화면 확보를 위해 모바일에서 숨김 */
+    }
+
+    /* 진행 상황 바 */
+    .progress-container {
+        height: 18px;
+        margin-bottom: 16px;
+        border-radius: 20px;
+    }
+
+    .progress-text {
+        font-size: 12px;
+        line-height: 18px;
+        font-weight: 800;
+    }
+
+    /* 위저드 카드: 화면에 꽉 차는 네이티브 앱 카드 비례 */
+    .wizard-card {
+        padding: 24px 20px;
+        border-radius: 24px;
+        box-shadow: 0 12px 30px -5px rgba(15, 23, 42, 0.08);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        min-height: 520px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* 스텝 섹션 Flex 세로 레이아웃 (하단 버튼 정렬 지원) */
+    .step-section.active {
+        display: flex !important;
+        flex-direction: column;
+        flex: 1;
+    }
+
+    /* 스텝 헤더 */
+    .step-header {
+        margin-bottom: 16px;
+    }
+
+    .step-header .badge {
+        font-size: 13px;
+        padding: 4px 12px;
+        margin-bottom: 6px;
+        font-weight: 800;
+    }
+
+    .step-header h2 {
+        font-size: 22px;
+        font-weight: 800;
+        margin-bottom: 6px;
+        line-height: 1.35;
+        word-break: keep-all;
+    }
+
+    .step-header .step-desc {
+        font-size: 14.5px;
+        color: var(--slate-muted);
+        line-height: 1.4;
+    }
+
+    /* 버튼 공통 */
+    .btn {
+        font-size: 18px;
+        min-height: 54px;
+        padding: 13px 24px;
+        border-radius: 16px;
+        font-weight: 800;
+    }
+
+    .btn-lg {
+        font-size: 18px;
+        min-height: 54px;
+        padding: 13px 26px;
+    }
+
+    /* [STEP 0] 비밀번호 게이트 */
+    #step0 .form-group {
+        margin: 20px 0;
+    }
+
+    #inputPassword {
+        font-size: 24px !important;
+        padding: 16px !important;
+        border-radius: 16px !important;
+    }
+
+    /* [STEP 1] 목적지 선택: 큼직하고 시원한 추천 버튼 */
+    #step1 .option-grid {
+        margin-bottom: 16px !important;
+    }
+
+    #step1 .option-btn {
+        padding: 20px 16px !important;
+        border-radius: 18px !important;
+        border: 2px solid var(--primary-color) !important;
+        background: #F0F7FF !important;
+    }
+
+    #step1 .option-btn .icon {
+        font-size: 2.2rem !important;
+        margin-bottom: 6px !important;
+    }
+
+    #step1 .option-btn .label {
+        font-size: 1.35rem !important;
+        font-weight: 800 !important;
+        color: var(--slate-dark) !important;
+    }
+
+    #step1 .option-btn .sub {
+        font-size: 0.92rem !important;
+        margin-top: 4px !important;
+        color: #475569 !important;
+    }
+
+    #step1 .form-group {
+        margin-top: 10px !important;
+        margin-bottom: 16px !important;
+    }
+
+    #step1 .input-label {
+        font-size: 1.05rem !important;
+        margin-bottom: 8px !important;
+        font-weight: 700 !important;
+    }
+
+    #customDest {
+        font-size: 1.1rem !important;
+        padding: 14px 16px !important;
+        border-radius: 14px !important;
+    }
+
+    #step1 .sub-text {
+        font-size: 0.88rem !important;
+        margin-top: 6px !important;
+        line-height: 1.4 !important;
+        color: #64748B !important;
+    }
+
+    /* 하단 액션 버튼: 항상 카드의 맨 아래(우측 하단)에 위치 */
+    .step-actions {
+        margin-top: auto !important;
+        padding-top: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    /* [STEP 2] 음식 종류 (한/양/일/중식) 2x2 균형 잡힌 카드 */
+    .option-grid.columns-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .option-grid.columns-2 .option-btn {
+        padding: 14px 8px;
+        min-height: 86px;
+        border-radius: 16px;
+    }
+
+    .option-grid.columns-2 .option-btn .icon {
+        font-size: 26px;
+        margin-bottom: 3px;
+    }
+
+    .option-grid.columns-2 .option-btn .label {
+        font-size: 17px;
+        font-weight: 800;
+    }
+
+    .option-grid.columns-2 .option-btn .sub {
+        font-size: 12px;
+        margin-top: 2px;
+        line-height: 1.2;
+    }
+
+    /* [STEP 3] 예산 선택 3열 가로 카드 */
     .option-grid.columns-3 {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-bottom: 16px;
     }
+
+    .option-grid.columns-3 .option-btn {
+        padding: 12px 4px;
+        min-height: 90px;
+        border-radius: 14px;
+    }
+
+    .option-grid.columns-3 .option-btn .icon {
+        font-size: 24px;
+        margin-bottom: 3px;
+    }
+
+    .option-grid.columns-3 .option-btn .label {
+        font-size: 15px;
+        font-weight: 800;
+    }
+
+    .option-grid.columns-3 .option-btn .sub {
+        font-size: 11px;
+        margin-top: 2px;
+        line-height: 1.2;
+        text-align: center;
+    }
+
+    /* [STEP 4] 관심사 5개: 2열 대칭 그리드 + 마지막 5번째 와이드 */
+    .checkbox-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .check-card {
+        padding: 12px 12px;
+        font-size: 15px;
+        gap: 8px;
+        border-radius: 14px;
+    }
+
+    .check-card:nth-child(5) {
+        grid-column: span 2; /* 5번째 박물관/전시를 가로로 채워 균형 배치 */
+        justify-content: center;
+    }
+
+    .check-card .icon {
+        font-size: 20px;
+    }
+
+    .check-card .label {
+        font-size: 15px;
+        font-weight: 700;
+    }
+
+    .check-card input[type="checkbox"] {
+        width: 19px;
+        height: 19px;
+    }
+
+    /* [STEP 5] 인원수 & 안내박스 */
+    .counter-box {
+        margin: 14px 0;
+        gap: 20px;
+    }
+
+    .counter-btn {
+        width: 52px;
+        height: 52px;
+        font-size: 26px;
+    }
+
+    .counter-val {
+        font-size: 28px;
+        min-width: 80px;
+    }
+
+    .info-notice {
+        padding: 12px 14px;
+        margin-bottom: 16px;
+        font-size: 13.5px;
+        border-radius: 12px;
+    }
+
+    .info-notice p {
+        margin: 3px 0;
+    }
+
+    /* 이전 / 다음 액션 영역 */
+    .step-actions {
+        margin-top: 10px;
+        gap: 10px;
+    }
+
+    /* 하단 푸터 */
+    .app-footer {
+        margin-top: 16px !important;
+        padding: 10px 8px !important;
+        font-size: 12px !important;
+    }
+
+    /* 결과 페이지 모바일 지도 버튼 세로 정렬 */
     .map-btn-group {
         flex-direction: column;
     }
