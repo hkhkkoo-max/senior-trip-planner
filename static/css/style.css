@@ -53,11 +53,58 @@ body {
 /* 헤더 */
 .header {
     text-align: center;
-    margin-bottom: 28px;
+    margin-bottom: 24px;
+}
+
+/* 감성적인 여행 히어로 배너 카드 */
+.hero-banner-card {
+    position: relative;
+    width: 100%;
+    border-radius: 24px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    box-shadow: 0 16px 36px -8px rgba(37, 99, 235, 0.16), 0 4px 16px rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 100%);
+    aspect-ratio: 16 / 8.4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hero-illustration {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.4s ease;
+}
+
+.hero-banner-card:hover .hero-illustration {
+    transform: scale(1.02);
+}
+
+.hero-overlay-badge {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: #ffffff;
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: 14.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    white-space: nowrap;
 }
 
 .header .title {
-    font-size: 32px;
+    font-size: 30px;
     font-weight: 800;
     color: var(--slate-dark);
     letter-spacing: -0.02em;
@@ -66,9 +113,11 @@ body {
 }
 
 .header .subtitle {
-    font-size: 18px;
+    font-size: 16.5px;
     font-weight: 500;
     color: var(--slate-muted);
+    line-height: 1.5;
+    word-break: keep-all;
 }
 
 .back-link {
