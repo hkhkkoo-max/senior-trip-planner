@@ -41,29 +41,40 @@ body {
     color: var(--slate-body);
     font-size: 18px;
     line-height: 1.65;
-    padding: 20px 16px;
+    padding: 16px;
     letter-spacing: -0.01em;
+    min-height: 100vh;
+    min-height: 100dvh;
+    box-sizing: border-box;
 }
 
 .app-container {
-    max-width: 720px;
+    max-width: 680px;
+    margin: 0 auto;
+    width: 100%;
+    min-height: calc(100vh - 32px);
+    min-height: calc(100dvh - 32px);
+    display: flex;
+    flex-direction: column;
+}
+
 /* 헤더 */
 .header {
     text-align: center;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
 }
 
 /* 감성적인 자동차 드라이브 여행 히어로 배너 카드 (하단 박스와 100% 너비 일치) */
 .hero-banner-card {
     position: relative;
     width: 100%;
-    margin-bottom: 20px;
+    margin-bottom: 14px;
     border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: 0 12px 28px -6px rgba(37, 99, 235, 0.12), 0 4px 12px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 10px 24px -6px rgba(37, 99, 235, 0.12), 0 3px 10px rgba(0, 0, 0, 0.03);
     border: 1px solid rgba(214, 204, 192, 0.8);
     background: linear-gradient(135deg, #e0f2fe 0%, #fef3c7 100%);
-    height: 210px;
+    height: 175px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -974,8 +985,11 @@ body {
 /* ===== 모바일 앱(PWA) 전용: 가로폭 440px & 찌그러짐 없는 원스크린 최적화 ===== */
 @media (max-width: 600px) {
     body {
-        padding: 8px 10px 14px 10px;
+        padding: 8px 10px 8px 10px;
+        min-height: 100vh;
+        min-height: 100dvh;
         background-color: var(--bg-main);
+        box-sizing: border-box;
     }
 
     /* 가로폭을 단정하게 440px로 제한하여 스마트폰 앱 화면에 최적화 */
@@ -983,24 +997,28 @@ body {
         max-width: 440px;
         margin: 0 auto;
         width: 100%;
+        min-height: calc(100vh - 16px);
+        min-height: calc(100dvh - 16px);
+        display: flex;
+        flex-direction: column;
     }
 
-    /* 모바일 전용: 상단 자동차 여행 일러스트 배너 (크기를 기존의 절반인 105px로 컴팩트화) */
+    /* 모바일 전용: 상단 자동차 여행 일러스트 배너 (한 화면에 쏙 들어오도록 높이 95px로 최적화) */
     .hero-banner-card {
-        height: 105px !important;
-        margin-bottom: 10px !important;
+        height: 95px !important;
+        margin-bottom: 8px !important;
         border-radius: 14px !important;
-        box-shadow: 0 6px 16px -4px rgba(37, 99, 235, 0.1) !important;
+        box-shadow: 0 4px 12px -3px rgba(37, 99, 235, 0.1) !important;
     }
 
     /* 헤더 */
     .header {
-        margin-bottom: 10px !important;
+        margin-bottom: 8px !important;
         text-align: center;
     }
 
     .header .title {
-        font-size: 21px !important;
+        font-size: 20px !important;
         font-weight: 800 !important;
         letter-spacing: -0.02em;
         color: var(--slate-dark);
@@ -1292,9 +1310,13 @@ body {
 
     /* 하단 푸터 */
     .app-footer {
-        margin-top: 16px !important;
-        padding: 10px 8px !important;
-        font-size: 12px !important;
+        margin-top: auto !important;
+        padding: 10px 6px 4px 6px !important;
+        font-size: 11.5px !important;
+        line-height: 1.35 !important;
+    }
+    .app-footer p {
+        margin: 2px 0 !important;
     }
 
     /* 결과 페이지 모바일 지도 버튼 세로 정렬 */

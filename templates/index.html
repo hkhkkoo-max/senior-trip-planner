@@ -12,17 +12,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="당일치기도우미">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icons/icon.svg') }}">
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/icon-512.png') }}">
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260829_0032">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260829_0056">
 </head>
 <body>
     <div class="app-container">
         <!-- 헤더: 자동차 여행 일러스트 배너 & 타이틀 -->
         <header class="header">
             <div class="hero-banner-card">
-                <img src="{{ url_for('static', filename='images/travel_hero.svg') }}" alt="시니어 맞춤 당일치기 자동차 드라이브 여행" class="hero-illustration">
+                <img src="{{ url_for('static', filename='images/travel_hero.png') }}?v=20260829_0055" alt="시니어 맞춤 당일치기 자동차 드라이브 여행" class="hero-illustration">
             </div>
             <h1 class="title">시니어 맞춤 당일치기 여행</h1>
             <p class="subtitle">어르신이 편안한 평지 산책로 · 지자체 인증 으뜸 맛집 · 여유로운 힐링 코스</p>
@@ -234,9 +234,9 @@
         </main>
 
         <!-- [FOOTER] 하단 신뢰성 안내 푸터 -->
-        <footer class="app-footer text-center" style="margin-top: 35px; padding: 20px 10px; border-top: 1px solid var(--border-soft); color: var(--slate-muted); font-size: 14px;">
-            <p style="margin-bottom: 6px;">🏛️ <strong>공식 문화관광 데이터 기반</strong>: 서울관광재단 및 경기관광공사 검증 데이터를 바탕으로 맞춤 일정을 추천합니다.</p>
-            <p style="font-size: 12px; color: #94a3b8;">성남시 분당구 어르신 맞춤 당일치기 여행 도우미</p>
+        <footer class="app-footer text-center">
+            <p>🏛️ <strong>공식 문화관광 데이터 기반</strong>: 서울관광재단 및 경기관광공사 검증 데이터를 바탕으로 맞춤 일정을 추천합니다.</p>
+            <p style="font-size: 11px; color: #94a3b8;">성남시 분당구 어르신 맞춤 당일치기 여행 도우미</p>
         </footer>
     </div>
 
@@ -245,7 +245,7 @@
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register('/sw.js?v=20260829_2')
                     .then((reg) => {
                         console.log('[PWA] Service Worker 등록 성공! Scope:', reg.scope);
                     })

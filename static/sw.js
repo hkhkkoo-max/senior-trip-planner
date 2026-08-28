@@ -1,4 +1,4 @@
-const CACHE_NAME = 'senior-trip-v1';
+const CACHE_NAME = 'senior-trip-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/static/css/style.css',
@@ -6,7 +6,7 @@ const PRECACHE_ASSETS = [
   '/static/manifest.json',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
-  '/static/icons/icon.svg',
+  '/static/images/travel_hero.png',
   'https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css',
   'https://cdn.jsdelivr.net/npm/marked/marked.min.js'
 ];
