@@ -1255,6 +1255,49 @@ body {
     .map-btn-group {
         flex-direction: column;
     }
+
+    /* [결과 페이지 - 타임라인 모바일 최적화: 시간 뱃지 상단 배치 & 전체화면 꽉 찬 본문] */
+    .timeline-item {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+        padding: 18px 16px !important;
+        border-radius: 18px !important;
+    }
+
+    .time-badge {
+        font-size: 14px !important;
+        padding: 5px 14px !important;
+        border-radius: 20px !important;
+        margin-bottom: 2px !important;
+        align-self: flex-start !important;
+    }
+
+    .timeline-content {
+        width: 100% !important;
+    }
+
+    .timeline-content h4 {
+        font-size: 18.5px !important;
+        line-height: 1.4 !important;
+        margin-bottom: 8px !important;
+        word-break: keep-all !important;
+    }
+
+    .item-desc {
+        font-size: 15.5px !important;
+        line-height: 1.55 !important;
+        color: #334155 !important;
+        margin-bottom: 10px !important;
+        word-break: keep-all !important;
+    }
+
+    .walking-badge {
+        display: inline-flex !important;
+        font-size: 13.5px !important;
+        padding: 6px 12px !important;
+        border-radius: 10px !important;
+    }
 }
 
 /* 미반영 관심사 사유 안내 박스 */
