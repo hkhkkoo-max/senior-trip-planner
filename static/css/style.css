@@ -56,18 +56,17 @@ body {
     margin-bottom: 20px;
 }
 
-/* 감성적인 가을 숲길 여행 히어로 배너 카드 (더 작고 아담한 컴팩트 크기) */
+/* 감성적인 가을 숲길 여행 히어로 배너 카드 (하단 박스와 100% 너비 일치) */
 .hero-banner-card {
     position: relative;
-    max-width: 540px;
     width: 100%;
-    margin: 0 auto 16px auto;
-    border-radius: 18px;
+    margin: 0 0 18px 0;
+    border-radius: var(--radius-lg);
     overflow: hidden;
     box-shadow: 0 12px 28px -6px rgba(69, 26, 3, 0.12), 0 4px 12px rgba(0, 0, 0, 0.03);
     border: 1px solid rgba(214, 204, 192, 0.8);
     background: #fef3c7;
-    aspect-ratio: 16 / 7.2;
+    height: 190px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -77,7 +76,7 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: center 38%;
+    object-position: center 42%;
     display: block;
     transition: transform 0.4s ease;
 }
