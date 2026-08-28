@@ -1298,6 +1298,33 @@ body {
         padding: 6px 12px !important;
         border-radius: 10px !important;
     }
+
+    /* [결과 페이지 - 예상 비용 카드 모바일 최적화: 줄바꿈 없이 깔끔한 한 줄 표시] */
+    .cost-card {
+        padding: 18px 16px !important;
+        border-radius: 18px !important;
+    }
+
+    .total-cost {
+        font-size: 16.5px !important;
+        font-weight: 800 !important;
+        gap: 8px !important;
+        margin-bottom: 14px !important;
+        padding-bottom: 12px !important;
+    }
+
+    .total-cost span {
+        white-space: nowrap !important;
+    }
+
+    .total-cost .price {
+        font-size: 24px !important;
+        white-space: nowrap !important;
+    }
+
+    .cost-list li {
+        font-size: 15px !important;
+    }
 }
 
 /* 미반영 관심사 사유 안내 박스 */
