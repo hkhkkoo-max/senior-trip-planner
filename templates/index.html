@@ -22,7 +22,7 @@
         <!-- 헤더: 자동차 여행 일러스트 배너 & 타이틀 -->
         <header class="header" id="mainHeader">
             <div class="hero-banner-card" id="heroBanner">
-                <img src="{{ url_for('static', filename='images/travel_hero.png') }}?v=20260829_0825" alt="시니어 맞춤 당일치기 자동차 드라이브 여행" class="hero-illustration">
+                <img src="{{ url_for('static', filename='images/travel_hero.png') }}?v=20260829_0900" alt="시니어 맞춤 당일치기 자동차 드라이브 여행" class="hero-illustration">
             </div>
             <div class="header-text-group">
                 <h1 class="title">시니어 맞춤 당일치기 여행</h1>
@@ -242,12 +242,12 @@
         </footer>
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=20260829_0825"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=20260829_0900"></script>
     <!-- PWA Service Worker 등록 -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js?v=20260829_2')
+                navigator.serviceWorker.register('/sw.js?v=20260829_4')
                     .then((reg) => {
                         console.log('[PWA] Service Worker 등록 성공! Scope:', reg.scope);
                     })
