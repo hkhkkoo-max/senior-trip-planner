@@ -177,9 +177,9 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
     except Exception as e:
         print(f"[WARN] 카카오 식당 반경 검색 실패: {e}")
 
-    # 3. 반경 내 카페 검색 (CE7 - 어르신 부적합 보드게임/방탈출/애견/스터디/PC 제외)
+    # 3. 반경 내 카페 검색 (CE7 - 어르신 부적합 보드게임/방탈출/애견/스터디/PC/사주/타로 제외)
     cafes = []
-    exclude_keywords = ["보드게임", "방탈출", "PC", "만화", "스터디", "애견", "고양이", "룸카페", "무인"]
+    exclude_keywords = ["보드게임", "보드", "게임", "레드버튼", "홈즈앤루팡", "방탈출", "PC", "만화", "스터디", "애견", "반려", "고양이", "룸카페", "무인", "사주", "타로", "홀덤", "키즈", "모빌리티", "플스"]
     try:
         url = f"https://dapi.kakao.com/v2/local/search/category.json?category_group_code=CE7&x={center_x}&y={center_y}&radius={radius}&sort=accuracy"
         req = urllib.request.Request(url, headers=headers)
@@ -1500,6 +1500,43 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
                 {"name": "물왕버섯농원", "phone": "031-485-8533", "menu": f"수제 버섯 불고기 정식 & 놋그릇 밥상 (1인 {lunch_budget:,}원대)", "walkingInfo": "물왕저수지 도보 2분 (100m)", "features": "시흥 물왕저수지 전경 뷰 보양 버섯 한상 명가", "certBadge": "🏛️ 경기도/시흥시 지정 으뜸맛집", "mapUrls": make_map_urls("물왕버섯농원")},
                 {"name": "예원 한정식", "phone": "031-404-5040", "menu": "보리굴비 정식 & 수라상", "walkingInfo": "도보 3분 (150m)", "features": "어르신 속 편한 한정식 한상", "certBadge": "🏛️ 시흥시 지정 모범 한식당", "mapUrls": make_map_urls("예원 한정식")},
                 {"name": "시흥 갯골 곤드레밥", "phone": "031-405-5414", "menu": "곤드레 밥상 & 수제 반찬", "walkingInfo": "도보 2분 (100m)", "features": "구수한 수제 나물 밥상", "certBadge": "🏛️ 전통 향토음식점", "mapUrls": make_map_urls("시흥 갯골 곤드레밥")}
+            ]
+
+    # [경기도 성남시 / 분당 / 판교 / 율동공원 / 중앙공원]
+    elif "분당" in target_place or "성남" in target_place or "판교" in target_place or "율동" in target_place:
+        dest_title = "성남 분당 율동공원 & 중앙공원 수변 둘레길"
+        parking_name = "분당 율동공원 공영주차장"
+        parking_fee = "2시간 무료 (이후 30분당 300원, 전기차 50% 할인)"
+        
+        cafe_list = [
+            {"name": "55도커피로스터스", "phone": "031-706-5501", "dessert": "수제 핸드드립 & 디저트", "walkingInfo": "율동공원 도보 2분 (100m)", "features": "분당 율동공원 한옥 정원 뷰 대표 카페", "certBadge": "☕ 성남시 지정 으뜸 뷰카페", "mapUrls": make_map_urls("55도커피로스터스", "분당")},
+            {"name": "카페 라온", "phone": "031-707-1234", "dessert": "수제 쌍화차 & 전통 한과", "walkingInfo": "도보 3분 (150m)", "features": "어르신 쉬기 좋은 율동호수 조망 쉼터", "certBadge": "☕ 분당 추천 명품 찻집", "mapUrls": make_map_urls("카페 라온", "분당")},
+            {"name": "나무스", "phone": "031-705-7788", "dessert": "시그니처 라떼 & 베이커리", "walkingInfo": "도보 2분 (100m)", "features": "어르신 편안한 대형 소파석 카페", "certBadge": "☕ 성남 모범 뷰카페", "mapUrls": make_map_urls("나무스", "분당")}
+        ]
+        
+        if cuisine == "양식":
+            rest_list = [
+                {"name": "분당 까사밍고", "phone": "031-708-6200", "menu": f"수제 화덕피자 & 파스타 (1인 {lunch_budget:,}원대)", "walkingInfo": "도보 2분 (100m)", "features": "율동호수 전경 뷰 이탈리안 명가", "certBadge": "🏛️ 성남시 지정 으뜸 양식당", "mapUrls": make_map_urls("분당 까사밍고")},
+                {"name": "라라코스트 분당야탑점", "phone": "031-704-0301", "menu": "빠네 파스타 & 피자", "walkingInfo": "도보 3분 (150m)", "features": "담백한 패밀리 레스토랑", "certBadge": "🏛️ 모범 양식당", "mapUrls": make_map_urls("라라코스트 분당야탑점")},
+                {"name": "롤링파스타 분당서현점", "phone": "031-705-0410", "menu": "크림 파스타 & 리조또", "walkingInfo": "도보 2분 (100m)", "features": "부드럽고 소화 잘 됨", "certBadge": "🏛️ 가성비 우수 식당", "mapUrls": make_map_urls("롤링파스타 분당서현점")}
+            ]
+        elif cuisine == "일식":
+            rest_list = [
+                {"name": "스시선 분당점", "phone": "031-708-8833", "menu": f"모둠 초밥 정식 & 메밀소바 (1인 {lunch_budget:,}원대)", "walkingInfo": "도보 3분 (150m)", "features": "신선한 고급 일식 스시 정식", "certBadge": "🏛️ 성남시 지정 모범 일식당", "mapUrls": make_map_urls("스시선 분당점")},
+                {"name": "소바식당 백현점", "phone": "031-707-2388", "menu": "수제 메밀소바 & 돈가스", "walkingInfo": "도보 4분 (200m)", "features": "어르신 속 편한 일식 정식", "certBadge": "🏛️ 지자체 모범업소", "mapUrls": make_map_urls("소바식당 백현점")},
+                {"name": "카츠젠 분당점", "phone": "031-706-7008", "menu": "수제 돈가스 & 우동 정식", "walkingInfo": "도보 2분 (100m)", "features": "바삭하고 속 편한 튀김", "certBadge": "🏛️ 우수 일식 전문점", "mapUrls": make_map_urls("카츠젠 분당점")}
+            ]
+        elif cuisine == "중식":
+            rest_list = [
+                {"name": "루루 분당점", "phone": "031-709-5500", "menu": f"삼선 짬뽕 & 찹쌀 탕수육 (1인 {lunch_budget:,}원대)", "walkingInfo": "도보 3분 (150m)", "features": "율동공원 인근 정갈한 고급 중화요리", "certBadge": "🏛️ 성남시 지정 으뜸 중식당", "mapUrls": make_map_urls("루루 분당점")},
+                {"name": "취영루 성남본점", "phone": "031-746-5500", "menu": "중화 코스 요리", "walkingInfo": "도보 4분 (200m)", "features": "독립 룸 보유 어르신 모임 중식", "certBadge": "🏛️ 전통 중화요리 명가", "mapUrls": make_map_urls("취영루 성남본점")},
+                {"name": "홍콩반점0410 분당서현점", "phone": "031-701-8877", "menu": "간짜장 & 군만두", "walkingInfo": "도보 2분 (100m)", "features": "옛날 방식 소화 잘 됨", "certBadge": "🏛️ 전통 중화요리 맛집", "mapUrls": make_map_urls("홍콩반점0410 분당서현점")}
+            ]
+        else: # 한식
+            rest_list = [
+                {"name": "산촌", "phone": "031-708-3392", "menu": f"수제 곤드레밥 & 산채정식 (1인 {lunch_budget:,}원대)", "walkingInfo": "율동공원 도보 2분 (100m)", "features": "율동공원 대표 속 편한 산채 나물 한정식 명가", "certBadge": "🏛️ 성남시 지정 으뜸맛집", "mapUrls": make_map_urls("산촌", "분당")},
+                {"name": "장수천한방민물장어 분당점", "phone": "031-718-0592", "menu": "한방 장어구이 & 된장찌개", "walkingInfo": "도보 3분 (150m)", "features": "어르신 원기 회복 보양식 명가", "certBadge": "🏛️ 성남시 모범음식점 인증업소", "mapUrls": make_map_urls("장수천한방민물장어 분당점")},
+                {"name": "화수목", "phone": "031-703-7313", "menu": "소고기 수제 샤브샤브 & 칼국수", "walkingInfo": "도보 2분 (100m)", "features": "정갈하고 담백한 수제 샤브 한상", "certBadge": "🏛️ 분당 대표 향토음식점", "mapUrls": make_map_urls("화수목", "분당")}
             ]
 
     # [기타 모든 지역 (여주/화성 및 카카오 RAG 실시간 동적 생성)]
