@@ -177,21 +177,28 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
     except Exception as e:
         print(f"[WARN] 카카오 식당 반경 검색 실패: {e}")
 
-    # 3. 반경 내 카페 검색 (CE7)
+    # 3. 반경 내 카페 검색 (CE7 - 어르신 부적합 보드게임/방탈출/애견/스터디/PC 제외)
     cafes = []
+    exclude_keywords = ["보드게임", "방탈출", "PC", "만화", "스터디", "애견", "고양이", "룸카페", "무인"]
     try:
         url = f"https://dapi.kakao.com/v2/local/search/category.json?category_group_code=CE7&x={center_x}&y={center_y}&radius={radius}&sort=accuracy"
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=3) as resp:
             data = json.loads(resp.read().decode('utf-8'))
-            for doc in data.get("documents", [])[:8]:
+            for doc in data.get("documents", []):
+                p_name = doc.get("place_name", "")
+                c_name = doc.get("category_name", "")
+                if any(ex in p_name or ex in c_name for ex in exclude_keywords):
+                    continue
                 cafes.append({
-                    "name": doc.get("place_name"),
+                    "name": p_name,
                     "phone": doc.get("phone", ""),
                     "distance": f"{doc.get('distance')}m" if doc.get('distance') else "도보 3~5분",
                     "address": doc.get("road_address_name") or doc.get("address_name", ""),
                     "place_url": doc.get("place_url", "")
                 })
+                if len(cafes) >= 8:
+                    break
     except Exception as e:
         print(f"[WARN] 카카오 카페 반경 검색 실패: {e}")
 
@@ -869,9 +876,9 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         parking_fee = "1시간 1,200원 (전기차 50% 할인)"
         
         cafe_list = [
-            {"name": "정지영커피로스터즈 행궁본점", "phone": "031-247-5500", "dessert": "코코넛 라떼 & 에그타르트", "walkingInfo": "식당 도보 3분 (180m)", "features": "수원 화성 성곽 뷰, 야외 루프탑 소파석", "mapUrls": make_map_urls("정지영커피로스터즈 행궁본점")},
-            {"name": "카페 팔달산", "phone": "031-255-3322", "dessert": "수제 쌍화차 & 인절미 크로플", "walkingInfo": "식당 도보 4분 (200m)", "features": "어르신 쉬기 좋은 따뜻한 공간", "mapUrls": make_map_urls("카페 팔달산")},
-            {"name": "정지영커피 화홍문점", "phone": "031-248-1122", "dessert": "핸드드립 커피 & 휘낭시에", "walkingInfo": "식당 도보 2분 (120m)", "features": "화홍문 하천 뷰, 1층 넓은 입식 좌석", "mapUrls": make_map_urls("정지영커피 화홍문점")}
+            {"name": "경안당", "phone": "031-255-0322", "dessert": "전통 한방 쌍화차 & 꽃차 & 곶감말이", "walkingInfo": "식당 도보 3분 (150m)", "features": "수원 화성 행궁동 대표 고즈넉한 한옥 전통 찻집, 어르신 선호도 1위", "certBadge": "☕ 수원시 지정 우수 한옥 전통 찻집", "mapUrls": make_map_urls("경안당", "수원")},
+            {"name": "정지영커피로스터즈 행궁본점", "phone": "031-247-5500", "dessert": "코코넛 라떼 & 에그타르트", "walkingInfo": "식당 도보 3분 (180m)", "features": "수원 화성 성곽 뷰, 야외 루프탑 소파석", "certBadge": "☕ 행궁동 대표 로스터리 카페", "mapUrls": make_map_urls("정지영커피로스터즈 행궁본점")},
+            {"name": "정지영커피로스터즈 화홍문점", "phone": "031-248-1122", "dessert": "핸드드립 커피 & 휘낭시에", "walkingInfo": "식당 도보 2분 (120m)", "features": "화홍문 하천 뷰, 1층 넓은 입식 좌석", "certBadge": "☕ 화홍문 뷰 명소 카페", "mapUrls": make_map_urls("정지영커피로스터즈 화홍문점")}
         ]
         
         if cuisine == "양식":
