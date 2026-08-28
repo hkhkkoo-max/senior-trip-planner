@@ -66,6 +66,20 @@ function showStep(step) {
         targetSection.classList.add("active");
     }
 
+    const heroBanner = document.getElementById("heroBanner");
+    const mainHeader = document.getElementById("mainHeader");
+    const progressContainer = document.getElementById("progressContainer");
+
+    if (step === 0) {
+        if (heroBanner) heroBanner.style.display = "flex";
+        if (mainHeader) mainHeader.classList.remove("header-step-mode");
+        if (progressContainer) progressContainer.style.display = "none";
+    } else {
+        if (heroBanner) heroBanner.style.display = "none";
+        if (mainHeader) mainHeader.classList.add("header-step-mode");
+        if (progressContainer) progressContainer.style.display = "block";
+    }
+
     // 진행 상황 바 업데이트 (총 5단계)
     if (step >= 1 && step <= 5) {
         currentStep = step;

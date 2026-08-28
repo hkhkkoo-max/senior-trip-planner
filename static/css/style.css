@@ -62,19 +62,20 @@ body {
 .header {
     text-align: center;
     margin-bottom: 16px;
+    transition: all 0.3s ease;
 }
 
-/* 감성적인 자동차 드라이브 여행 히어로 배너 카드 (하단 박스와 100% 너비 일치) */
+/* 감성적인 자동차 드라이브 여행 히어로 배너 카드 (첫 화면 전용) */
 .hero-banner-card {
     position: relative;
     width: 100%;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
     border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: 0 10px 24px -6px rgba(37, 99, 235, 0.12), 0 3px 10px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 12px 28px -6px rgba(37, 99, 235, 0.14), 0 4px 12px rgba(0, 0, 0, 0.04);
     border: 1px solid rgba(214, 204, 192, 0.8);
     background: linear-gradient(135deg, #e0f2fe 0%, #fef3c7 100%);
-    height: 175px;
+    height: 220px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -93,22 +94,38 @@ body {
 }
 
 .header .title {
-    font-size: 30px;
+    font-size: 28px;
     font-weight: 800;
     color: var(--slate-dark);
     letter-spacing: -0.02em;
     margin-top: 4px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     word-break: keep-all;
 }
 
 .header .subtitle {
-    font-size: 16.5px;
+    font-size: 15.5px;
     font-weight: 600;
     color: #475569;
-    line-height: 1.55;
+    line-height: 1.5;
     margin-bottom: 0;
     word-break: keep-all;
+}
+
+/* 1~5단계 진행 중 컴팩트 헤더 */
+.header.header-step-mode {
+    margin-bottom: 8px;
+}
+
+.header.header-step-mode .title {
+    font-size: 18px;
+    margin-top: 0;
+    margin-bottom: 0;
+    color: #334155;
+}
+
+.header.header-step-mode .subtitle {
+    display: none !important;
 }
 
 .hero-banner-card:hover .hero-illustration {
@@ -1003,27 +1020,27 @@ body {
         flex-direction: column;
     }
 
-    /* 모바일 전용: 상단 자동차 여행 일러스트 배너 (한 화면에 쏙 들어오도록 높이 95px로 최적화) */
+    /* 모바일 전용: 상단 자동차 여행 일러스트 배너 (첫 화면에서 큼직하게 165px) */
     .hero-banner-card {
-        height: 95px !important;
-        margin-bottom: 8px !important;
-        border-radius: 14px !important;
-        box-shadow: 0 4px 12px -3px rgba(37, 99, 235, 0.1) !important;
+        height: 165px !important;
+        margin-bottom: 12px !important;
+        border-radius: 16px !important;
+        box-shadow: 0 6px 18px -4px rgba(37, 99, 235, 0.12) !important;
     }
 
     /* 헤더 */
     .header {
-        margin-bottom: 8px !important;
+        margin-bottom: 12px !important;
         text-align: center;
     }
 
     .header .title {
-        font-size: 20px !important;
+        font-size: 21px !important;
         font-weight: 800 !important;
         letter-spacing: -0.02em;
         color: var(--slate-dark);
         margin-top: 2px !important;
-        margin-bottom: 2px !important;
+        margin-bottom: 4px !important;
     }
 
     .header .subtitle {
@@ -1032,6 +1049,21 @@ body {
         line-height: 1.35 !important;
         color: var(--slate-muted) !important;
         margin-bottom: 0 !important;
+    }
+
+    /* 모바일 1~5단계 진행 중 컴팩트 헤더 */
+    .header.header-step-mode {
+        margin-bottom: 6px !important;
+    }
+
+    .header.header-step-mode .title {
+        font-size: 16px !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+    }
+
+    .header.header-step-mode .subtitle {
+        display: none !important;
     }
 
     /* 진행 상황 바 */
