@@ -74,17 +74,7 @@ def clean_place_name(name):
     cleaned = re.sub(r'\(.*?\)', '', cleaned)
     cleaned = re.sub(r'[\'\"`]', '', cleaned)
 
-    # 4. 동/지역/공원 접두어가 상호명 맨 앞에 불필요하게 붙은 경우 자동 정제 (예: "이촌동 아티제" -> "아티제", "삼각지 카츠야" -> "카츠야")
-    prefix_clean = [
-        "이촌동 ", "삼각지 ", "보정동 ", "어정 ", "동백 ", "기흥 ", "방이동 ", "야탑 ",
-        "판교 ", "광교 ", "행궁동 ", "인계동 ", "평촌 ", "범계 ", "물왕저수지 ",
-        "부대찌개거리 ", "아침고요 "
-    ]
-    for pfx in prefix_clean:
-        if cleaned.startswith(pfx):
-            cleaned = cleaned[len(pfx):].strip()
-
-    # 5. '&', ' 및 ', ',' 등 복합 장소명인 경우 100% 카카오맵 단일 장소 검색 성공을 위해 1순위 대표 장소만 분리
+    # 4. '&', ' 및 ', ',' 등 복합 장소명인 경우 100% 카카오맵 단일 장소 검색 성공을 위해 1순위 대표 장소만 분리
     for sep in [' & ', '&', ' 및 ', ',']:
         if sep in cleaned:
             cleaned = cleaned.split(sep)[0].strip()
@@ -165,12 +155,14 @@ def fetch_ev_charger_info(parking_name, region_tag=""):
                     type_str = type_map.get(chger_type_code, "DC 콤보 급속")
                     output_power = target.get("output", "50")
                     
+                    clean_ev_base = re.sub(r'(옥외|지하|공영|부설|노상|노외)?\s*주차장.*', '', clean_name).strip()
+                    ev_query = f"{clean_ev_base} 전기차충전소" if clean_ev_base else f"{clean_name} 전기차충전소"
                     return {
                         "name": f"{target.get('statNm', parking_name)} EV 충전소",
                         "location": target.get("addr", "주차장 내 전용 구역"),
                         "brand": f"{busi_nm} / 총 {len(matched)}기 운용 중",
                         "type": f"{type_str} ({output_power}kW 급속)",
-                        "mapUrls": make_map_urls(f"{clean_name} 전기차충전소")
+                        "mapUrls": make_map_urls(ev_query)
                     }
         except Exception as e:
             print(f"[WARN] 공공데이터 EV API 호출 실패: {e}")
@@ -1045,34 +1037,34 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         parking_fee = "1시간 2,000원 (전기차 50% 할인)"
         
         cafe_list = [
-            {"name": "국립중앙박물관 사유카페", "phone": "02-2077-9770", "dessert": "전통 한방 차 & 오미자 에이드", "walkingInfo": "박물관 내 도보 1분 (50m)", "features": "거울못 호수 뷰 어르신 소파석", "certBadge": "☕ 국립박물관 공식 찻집", "mapUrls": make_map_urls("국립중앙박물관 사유카페")},
-            {"name": "오설록 티하우스 아모레퍼시픽 용산점", "phone": "02-709-1500", "dessert": "제주 녹차 라떼 & 오설록 롤케이크", "walkingInfo": "도보 3분 (150m)", "features": "넓고 조용한 차 전용 공간", "certBadge": "☕ 지자체 추천 으뜸 찻집", "mapUrls": make_map_urls("오설록 티하우스 아모레퍼시픽 용산점")},
-            {"name": "헬카페 로스터즈", "phone": "02-792-7041", "dessert": "클래식 드립 커피 & 티라미수", "walkingInfo": "도보 4분 (200m)", "features": "어르신 선호 편안한 소파석", "certBadge": "☕ 용산 대표 로스터리", "mapUrls": make_map_urls("헬카페 로스터즈")}
+            {"name": "사유공간찻집 (국립중앙박물관 3층)", "phone": "02-749-6013", "dessert": "전통 한방 차 & 다과 세트", "walkingInfo": "박물관 3층 도보 1분", "features": "통유리 창가 뷰 어르신 전통 찻집", "certBadge": "☕ 국립박물관 공식 찻집", "mapUrls": make_map_urls("국립중앙박물관 사유공간찻집")},
+            {"name": "오설록 티하우스 용산파크점", "phone": "02-709-1500", "dessert": "제주 녹차 라떼 & 오설록 롤케이크", "walkingInfo": "신용산역 아모레 본사 1층", "features": "넓고 쾌적한 프리미엄 차 전용 공간", "certBadge": "☕ 지자체 추천 으뜸 찻집", "mapUrls": make_map_urls("오설록 티하우스 용산파크점")},
+            {"name": "헬카페 로스터즈", "phone": "02-792-7041", "dessert": "클래식 드립 커피 & 티라미수", "walkingInfo": "도보 4분 (200m)", "features": "어르신 선호 편안한 소파석", "certBadge": "☕ 용산 대표 로스터리", "mapUrls": make_map_urls("용산 헬카페 로스터즈")}
         ]
         
         if cuisine == "양식":
             rest_list = [
-                {"name": "거울못 식당", "phone": "02-798-2200", "menu": f"이탈리안 화덕 피자 & 수제 파스타 (1인 {lunch_budget:,}원대)", "walkingInfo": "거울못 산책로에서 도보 1분 (50m)", "features": "국립중앙박물관 거울못 호수 전경 뷰, 차량 이동 없는 동선 최적화", "certBadge": "🏛️ 국립박물관 구내 대표 양식당", "mapUrls": make_map_urls("거울못 식당")},
-                {"name": "이촌동 아티제", "phone": "02-794-3123", "menu": "수제 브런치 파스타 & 샐러드", "walkingInfo": "박물관 출구 도보 4분 (200m)", "features": "이촌동 호젓한 거리 뷰, 어르신 편안한 소파석", "certBadge": "🏛️ 용산 이촌동 추천 브런치 양식당", "mapUrls": make_map_urls("이촌동 아티제")},
+                {"name": "국립중앙박물관 거울못식당", "phone": "02-798-2200", "menu": f"이탈리안 화덕 피자 & 수제 파스타 (1인 {lunch_budget:,}원대)", "walkingInfo": "거울못 산책로에서 도보 1분 (50m)", "features": "국립중앙박물관 거울못 호수 전경 뷰, 차량 이동 없는 동선 최적화", "certBadge": "🏛️ 국립박물관 구내 대표 양식당", "mapUrls": make_map_urls("국립중앙박물관 거울못식당")},
+                {"name": "아티제 동부이촌동점", "phone": "02-794-3123", "menu": "수제 브런치 파스타 & 샐러드", "walkingInfo": "박물관 출구 도보 4분 (200m)", "features": "이촌동 호젓한 거리 뷰, 어르신 편안한 소파석", "certBadge": "🏛️ 용산 이촌동 추천 브런치 양식당", "mapUrls": make_map_urls("아티제 동부이촌동점")},
                 {"name": "매드포갈릭 용산아이파크몰점", "phone": "02-2012-0651", "menu": "갈릭 스노잉 피자 & 파스타", "walkingInfo": "용산역 도보 1분 (아이파크몰 6층)", "features": "어르신 선호 편안한 소파석 & 엘리베이터 보유", "certBadge": "🏛️ 용산 대표 이탈리안 레스토랑", "mapUrls": make_map_urls("매드포갈릭 용산아이파크몰점")}
             ]
         elif cuisine == "일식":
             rest_list = [
-                {"name": "갓덴스시 아이파크몰점", "phone": "02-2012-0695", "menu": f"모둠 회전초밥 & 우동 정식 (1인 {lunch_budget:,}원대)", "walkingInfo": "용산역 도보 1분 (아이파크몰 6층)", "features": "신선한 스시와 정갈한 일식", "certBadge": "🏛️ 용산구 대표 으뜸 일식당", "mapUrls": make_map_urls("갓덴스시 아이파크몰점")},
+                {"name": "갓덴스시 용산아이파크몰점", "phone": "02-2012-0695", "menu": f"모둠 회전초밥 & 우동 정식 (1인 {lunch_budget:,}원대)", "walkingInfo": "용산역 도보 1분 (아이파크몰 6층)", "features": "신선한 스시와 정갈한 일식", "certBadge": "🏛️ 용산구 대표 으뜸 일식당", "mapUrls": make_map_urls("갓덴스시 용산아이파크몰점")},
                 {"name": "이촌동 스시무라", "phone": "02-790-0012", "menu": "모둠 초밥 & 메밀소바", "walkingInfo": "도보 3분 (150m)", "features": "어르신 속 편한 일식 정식", "certBadge": "🏛️ 지자체 추천 모범업소", "mapUrls": make_map_urls("이촌동 스시무라")},
-                {"name": "카츠야", "phone": "02-798-7008", "menu": f"수제 돈가스 & 우동 정식 (1인 {lunch_budget:,}원대)", "walkingInfo": "삼각지역 도보 2분 (100m)", "features": "바삭하고 속 편한 튀김 정식", "certBadge": "🏛️ 용산구 지정 우수 일식 전문점", "mapUrls": make_map_urls("카츠야", "용산")}
+                {"name": "용산 카츠9", "phone": "02-798-7008", "menu": f"수제 프리미엄 안심 돈가스 정식 (1인 {lunch_budget:,}원대)", "walkingInfo": "도보 3분", "features": "바삭하고 속 편한 튀김 정식", "certBadge": "🏛️ 용산구 지정 우수 일식 전문점", "mapUrls": make_map_urls("용산 카츠9")}
             ]
         elif cuisine == "중식":
             rest_list = [
-                {"name": "대가방 용산점", "phone": "02-790-8877", "menu": f"삼선 짬뽕 & 수제 탕수육 (1인 {lunch_budget:,}원대)", "walkingInfo": "도보 3분", "features": "독립 룸 보유, 속 편한 고급 중식", "certBadge": "🏛️ 용산구 지정 대표 중식 명가", "mapUrls": make_map_urls("대가방 용산점")},
-                {"name": "자금성 용산점", "phone": "02-792-8877", "menu": "점심 중화 코스 요리", "walkingInfo": "도보 4분", "features": "정갈한 수제 중화요리", "certBadge": "🏛️ 지자체 지정 모범 중식당", "mapUrls": make_map_urls("자금성 용산점")},
-                {"name": "동방홍 용산점", "phone": "02-794-5500", "menu": "삼선 간짜장 & 군만두", "walkingInfo": "도보 2분", "features": "옛날 방식 전통 중식", "certBadge": "🏛️ 전통 고급 중식당", "mapUrls": make_map_urls("동방홍 용산점")}
+                {"name": "용산 명화원", "phone": "02-792-2249", "menu": f"서울 3대 찹쌀 탕수육 & 짬뽕 (1인 {lunch_budget:,}원대)", "walkingInfo": "삼각지역 도보 2분", "features": "수요미식회 방영, 서울 3대 탕수육 명가", "certBadge": "🏛️ 서울시 지정 블루리본 중식 명가", "mapUrls": make_map_urls("용산 명화원")},
+                {"name": "용산 주사부", "phone": "02-792-2419", "menu": "특밥 & 탕수육 정식", "walkingInfo": "숙대입구역 도보 3분", "features": "50년 전통 생활의달인 화상 중식당", "certBadge": "🏛️ 50년 전통 중식 달인 명가", "mapUrls": make_map_urls("용산 주사부")},
+                {"name": "일일향 용산점", "phone": "02-792-1080", "menu": "어향동고 & 육즙 돼지고기 탕수육", "walkingInfo": "신용산역 도보 2분", "features": "정갈한 룸 완비, 속 편한 고급 중식", "certBadge": "🏛️ 지자체 지정 모범 중식당", "mapUrls": make_map_urls("일일향 용산점")}
             ]
         else: # 한식
             rest_list = [
-                {"name": "용산 동빙고 본점", "phone": "02-794-7388", "menu": f"수제 팥빙수 & 단팥죽 정식 (1인 {lunch_budget:,}원대)", "walkingInfo": "도보 3분 (150m)", "features": "이촌동 30년 전통 국산 팥 전문 명가", "certBadge": "🏛️ 용산구 지정 전통 모범업소", "mapUrls": make_map_urls("동빙고")},
-                {"name": "기와 한정식 용산점", "phone": "02-793-3355", "menu": "보양 곤드레 밥상 정식", "walkingInfo": "용산역 도보 2분 (100m)", "features": "정갈한 나물과 불고기 수라 한상", "certBadge": "🏛️ 서울시 지정 으뜸맛집 인증업소", "mapUrls": make_map_urls("기와 한정식 용산점")},
-                {"name": "이촌동 한강집", "phone": "02-795-3300", "menu": "생태매운탕 & 백반 정식", "walkingInfo": "도보 2분 (100m)", "features": "어르신 속 편한 40년 전통 탕 명가", "certBadge": "🏛️ 지자체 지정 향토맛집", "mapUrls": make_map_urls("이촌동 한강집")}
+                {"name": "동빙고 본점", "phone": "02-794-7388", "menu": f"수제 팥빙수 & 단팥죽 (1인 {lunch_budget:,}원대)", "walkingInfo": "이촌동 도보 3분 (150m)", "features": "이촌동 30년 전통 국산 팥 전문 명가", "certBadge": "🏛️ 용산구 지정 전통 모범업소", "mapUrls": make_map_urls("동빙고 본점")},
+                {"name": "용산 기와", "phone": "02-793-3355", "menu": "보양 곤드레 밥상 정식", "walkingInfo": "용산역 도보 2분 (100m)", "features": "정갈한 나물과 불고기 수라 한상", "certBadge": "🏛️ 서울시 지정 으뜸맛집 인증업소", "mapUrls": make_map_urls("용산 기와")},
+                {"name": "한강집생태", "phone": "02-795-3300", "menu": "생태매운탕 & 백반 정식", "walkingInfo": "삼각지역 도보 2분 (100m)", "features": "어르신 속 편한 40년 전통 탕 명가", "certBadge": "🏛️ 지자체 지정 향토맛집", "mapUrls": make_map_urls("한강집생태")}
             ]
 
     # [서울 송파구 / 잠실 / 석촌호수 / 올림픽공원]
@@ -1783,12 +1775,14 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     if api_ev_info:
         ev_station_data = api_ev_info
     elif "충전소" in parking_fee or "전기차" in parking_fee:
+        clean_ev_base = re.sub(r'(옥외|지하|공영|부설|노상|노외)?\s*주차장.*', '', parking_name).strip()
+        ev_query = f"{clean_ev_base} 전기차충전소" if clean_ev_base else f"{parking_name} 전기차충전소"
         ev_station_data = {
             "name": f"{parking_name} 내 EV 급속충전소",
             "location": "주차장 전면 (식당/카페 도보 3~5분)",
             "brand": ev_brand if 'ev_brand' in locals() else "환경부 공용 충전기",
             "type": "DC 콤보 급속 충전기",
-            "mapUrls": make_map_urls(f"{parking_name} 전기차충전소")
+            "mapUrls": make_map_urls(ev_query)
         }
 
     ret = {
