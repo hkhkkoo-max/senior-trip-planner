@@ -1,4 +1,4 @@
-const CACHE_NAME = 'senior-trip-v5';
+const CACHE_NAME = 'senior-trip-v6';
 const PRECACHE_ASSETS = [
   '/',
   '/static/css/style.css',
@@ -6,9 +6,7 @@ const PRECACHE_ASSETS = [
   '/static/manifest.json',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
-  '/static/images/travel_hero.png',
-  'https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css',
-  'https://cdn.jsdelivr.net/npm/marked/marked.min.js'
+  '/static/images/travel_hero.png'
 ];
 
 // 서비스 워커 설치 이벤트 (기본 정적 파일 프리캐싱)
@@ -16,9 +14,11 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[Service Worker] Pre-caching offline assets');
-      return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[Service Worker] Pre-cache partial fail:', err);
-      });
+      return Promise.all(
+        PRECACHE_ASSETS.map((url) => 
+          cache.add(url).catch((err) => console.warn('[Service Worker] Skip caching:', url, err))
+        )
+      );
     }).then(() => self.skipWaiting())
   );
 });

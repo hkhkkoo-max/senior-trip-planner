@@ -3,9 +3,10 @@
   "short_name": "당일치기 도우미",
   "description": "성남시 분당구 70대 이상 어르신을 위한 맞춤 당일치기 여행 일정 추천 서비스",
   "start_url": "/",
+  "scope": "/",
   "id": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "background_color": "#f8fafc",
   "theme_color": "#2563eb",
   "lang": "ko",
@@ -14,13 +15,25 @@
       "src": "/static/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/static/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
