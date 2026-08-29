@@ -193,13 +193,22 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
     main_place_url = ""
     main_address = ""
     
-    search_queries = [
+    # 다중 명소 키워드 지능형 분해 (예: '서울 용산구 국립중앙박물관 및 용산가족공원' -> ['서울 용산구 국립중앙박물관', '국립중앙박물관', '용산가족공원'])
+    sub_parts = re.split(r'[\&\,]|(?:\s+(?:및|와|과)\s+)', clean_target)
+    extracted_kws = []
+    for p in sub_parts:
+        p_clean = p.strip()
+        if p_clean and len(p_clean) >= 2:
+            extracted_kws.append(p_clean)
+            sub_no_city = re.sub(r'^(?:서울|경기|인천|강원|충남|충북|전남|전북|경남|경북)\s+(?:[가-힣]+[시군구]\s+)?', '', p_clean).strip()
+            if sub_no_city and sub_no_city != p_clean and len(sub_no_city) >= 2:
+                extracted_kws.append(sub_no_city)
+
+    search_queries = extracted_kws + [
         clean_target,
         f"서울 {clean_target}" if clean_target in ["용산", "종로", "중구", "송파", "마포", "은평"] else clean_target,
         target_place,
-        f"{clean_target} 관광지",
-        f"{clean_target} 중심",
-        clean_target.split()[0] if clean_target else ""
+        f"{clean_target} 관광지"
     ]
     
     for q in search_queries:
@@ -1742,11 +1751,10 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     if not region_tag:
         region_tag = dest_title.split()[0] if dest_title else target_place
 
-    # 지자체 인증 배지 주입 및 상호명에 [지역명] 태그 표기 & 카카오맵 검색URL 결합
+    # 지자체 인증 배지 주입 및 카카오맵 검색URL 결합 (상호명은 깔끔한 실존 상호 그대로 유지)
     for idx, r in enumerate(ret["restaurantCandidates"]):
-        r_name = r["name"]
-        if region_tag and not r_name.startswith("["):
-            r["name"] = f"[{region_tag}] {r_name}"
+        r_name = re.sub(r'\[.*?\]\s*', '', r["name"]).strip()
+        r["name"] = r_name
         if not r.get("mapUrls") or not r["mapUrls"].get("kakao_route"):
             r["mapUrls"] = make_map_urls(r["name"], region_tag, r.get("place_url", ""), r.get("x"), r.get("y"))
         r["tourismInfo"] = get_official_tourism_info(r_name, dest_title)
@@ -1758,9 +1766,8 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             r["certBadge"] = r["tourismInfo"]["badgeText"]
 
     for idx, c in enumerate(ret["cafeCandidates"]):
-        c_name = c["name"]
-        if region_tag and not c_name.startswith("["):
-            c["name"] = f"[{region_tag}] {c_name}"
+        c_name = re.sub(r'\[.*?\]\s*', '', c["name"]).strip()
+        c["name"] = c_name
         if not c.get("mapUrls") or not c["mapUrls"].get("kakao_route"):
             c["mapUrls"] = make_map_urls(c["name"], region_tag, c.get("place_url", ""), c.get("x"), c.get("y"))
         if not c.get("certBadge"):
