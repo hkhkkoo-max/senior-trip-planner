@@ -289,20 +289,25 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
     except Exception as e:
         print(f"[WARN] 카카오 식당 검색 예외: {e}")
 
-    # 3. 반경 내 카페 검색 (CE7 - 어르신 부적합 시설 제외)
+    # 3. 카페 검색: 만약 1순위 추천 식당이 선정되었다면, 점심 식당 바로 앞(도보 1~3분, 반경 1,000m) 카페를 최우선 수집!
     cafes = []
     exclude_keywords = ["보드게임", "보드", "게임", "레드버튼", "홈즈앤루팡", "방탈출", "PC", "만화", "스터디", "애견", "반려", "고양이", "룸카페", "무인", "사주", "타로", "홀덤", "키즈", "모빌리티", "플스"]
+    
+    cafe_cx = restaurants[0]["x"] if (restaurants and restaurants[0].get("x")) else center_x
+    cafe_cy = restaurants[0]["y"] if (restaurants and restaurants[0].get("y")) else center_y
+    cafe_rad = 1000 if (restaurants and restaurants[0].get("x")) else radius
+    
     try:
         res = requests.get(
             "https://dapi.kakao.com/v2/local/search/category.json",
             headers=headers,
             params={
                 "category_group_code": "CE7",
-                "x": center_x,
-                "y": center_y,
-                "radius": radius,
+                "x": cafe_cx,
+                "y": cafe_cy,
+                "radius": cafe_rad,
                 "size": 10,
-                "sort": "accuracy"
+                "sort": "distance"
             },
             timeout=3
         )
@@ -315,7 +320,7 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
                 cafes.append({
                     "name": p_name,
                     "phone": doc.get("phone", ""),
-                    "distance": f"{doc.get('distance')}m" if doc.get('distance') else "도보 3~5분",
+                    "distance": f"도보 {max(1, round(int(doc.get('distance', 100))/65))}분 ({doc.get('distance')}m)" if doc.get('distance') else "도보 2~3분",
                     "address": doc.get("road_address_name") or doc.get("address_name", ""),
                     "place_url": doc.get("place_url", ""),
                     "x": doc.get("x"),
@@ -324,12 +329,19 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
                 if len(cafes) >= 6:
                     break
                     
-        # 카페가 적을 경우 키워드 직접 검색으로 보강
+        # 식당 반경 내 카페가 적을 경우 목적지 중심으로 보강
         if len(cafes) < 3:
             res_kw = requests.get(
-                "https://dapi.kakao.com/v2/local/search/keyword.json",
+                "https://dapi.kakao.com/v2/local/search/category.json",
                 headers=headers,
-                params={"query": f"{main_place_name} 카페", "size": 5},
+                params={
+                    "category_group_code": "CE7",
+                    "x": center_x,
+                    "y": center_y,
+                    "radius": radius,
+                    "size": 6,
+                    "sort": "accuracy"
+                },
                 timeout=3
             )
             if res_kw.status_code == 200:
@@ -339,7 +351,7 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
                         cafes.append({
                             "name": p_name,
                             "phone": doc.get("phone", ""),
-                            "distance": "인근 도보 3분",
+                            "distance": f"인근 {doc.get('distance')}m" if doc.get('distance') else "도보 3분",
                             "address": doc.get("road_address_name") or doc.get("address_name", ""),
                             "place_url": doc.get("place_url", ""),
                             "x": doc.get("x"),
@@ -1527,7 +1539,7 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
                         "name": c["name"],
                         "phone": c.get("phone", ""),
                         "dessert": "시그니처 전통차 & 베이커리 디저트",
-                        "walkingInfo": f"식당 {c.get('distance', '도보 3분')}",
+                        "walkingInfo": f"식당에서 {c.get('distance', '도보 2~3분')}",
                         "features": f"{c.get('address', '')} 인근, 어르신 쉬기 편한 쉼터",
                         "certBadge": "☕ 지자체 추천 으뜸 찻집/카페",
                         "place_url": c.get("place_url", ""),
@@ -1538,23 +1550,27 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
                     for c in lunch_rag["cafes"][:3]
                 ]
 
+    # 점심 및 카페 대표 상호명 추출 (타임라인 제목에 직접 노출)
+    rep_rest = re.sub(r'\[.*?\]\s*', '', rest_list[0]["name"]).strip() if rest_list else f"{lunch_location_name} 맛집"
+    rep_cafe = re.sub(r'\[.*?\]\s*', '', cafe_list[0]["name"]).strip() if cafe_list else f"{lunch_location_name} 카페"
+
     # 점심 식사 일정 (오전 직전 일정 장소 인근 도보/근거리 식당 매칭)
     timeline_items.append({
         "time": "12:30 ~ 13:30",
-        "title": f"🍱 [점심 식사] [{lunch_location_name} 인근] {cuisine} 추천 식당 3선 중 선택",
-        "description": f"12:30 점심 식사 시간입니다. {lunch_location_name}에서 도보 2~4분 거리의 아래 [🍱 지자체 추천 {cuisine} 식당 3선] 중 마음에 드는 식당으로 이동하세요. (1인 예산 약 {lunch_budget:,}원)",
-        "walkingInfo": f"{lunch_location_name} 도보 2~4분",
+        "title": f"🍱 [점심 식사] '{rep_rest}' 등 {lunch_location_name} 추천 맛집 3선",
+        "description": f"12:30 점심 식사 시간입니다. {lunch_location_name} 도보권 대표 맛집 '{rep_rest}' 등 아래 [🍱 지자체 추천 {cuisine} 식당 3선] 중 마음에 드는 식당으로 이동하세요. (1인 예산 약 {lunch_budget:,}원)",
+        "walkingInfo": f"{lunch_location_name} 도보 1~3분",
         "mapUrls": rest_list[0]["mapUrls"],
         "isVerificationNeeded": True,
         "note": "인기 식당은 방문 전 전화로 예약 및 당일 영업 확인을 권장합니다."
     })
 
-    # 14:00 디저트 및 뷰카페 일정
+    # 14:00 디저트 및 뷰카페 일정 (식당 바로 앞 도보권 카페)
     timeline_items.append({
         "time": "14:00 ~ 15:15",
-        "title": f"☕ [디저트 & 뷰카페 휴식] 추천 카페 3곳 중 선택",
-        "description": f"14:00 디저트 및 힐링 휴식 시간입니다. 식당 도보 2~3분 거리(약 150m) 아래 [☕ 추천 카페 3선] 중 전망 좋고 쉬기 편한 창가 소파석 카페에서 담소를 나누세요.",
-        "walkingInfo": "식당에서 카페까지 도보 2~3분 (약 150m)",
+        "title": f"☕ [디저트 & 뷰카페 휴식] '{rep_cafe}' 등 식당 도보권 카페 3선",
+        "description": f"14:00 디저트 및 힐링 휴식 시간입니다. 점심 식당 바로 앞(도보 2~3분)에 위치한 '{rep_cafe}' 등 아래 [☕ 추천 카페 3선] 중 전망 좋고 쉬기 편한 창가 소파석 카페에서 담소를 나누세요.",
+        "walkingInfo": f"{cafe_list[0].get('walkingInfo', '식당에서 도보 2~3분')}",
         "mapUrls": cafe_list[0]["mapUrls"],
         "isVerificationNeeded": True,
         "note": "주말 14시 이후 소파/창가 좌석 여유 있게 이용"

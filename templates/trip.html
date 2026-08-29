@@ -134,7 +134,7 @@
                     <!-- 12:30 점심 식사 일정 바로 아래에 추천 식당 3선 카드 배치 -->
                     {% if (item.time == "12:30" or "점심" in item.title) and trip.output.restaurantCandidates %}
                     <div class="restaurant-inline-box">
-                        <h4 class="rest-box-title">🍱 선택하신 [{{ trip.input.cuisineType if trip.input.cuisineType else '한식' }}] 추천 식당 3선 (1인 예산 약 {% if trip.input.lunchBudgetPerPerson <= 10000 %}1만원대{% elif trip.input.lunchBudgetPerPerson == 20000 %}2만원대{% else %}3만원대{% endif %})</h4>
+                        <h4 class="rest-box-title">🍱 [{{ trip.input.cuisineType if trip.input.cuisineType else '한식' }}] 추천 식당 3선: {{ trip.output.restaurantCandidates[0].name }} 외 2곳 (1인 예산 약 {% if trip.input.lunchBudgetPerPerson <= 10000 %}1만원대{% elif trip.input.lunchBudgetPerPerson == 20000 %}2만원대{% else %}3만원대{% endif %})</h4>
                         <p class="rest-box-sub">아래 3가지 식당 중 취향에 맞는 곳으로 방문하세요. (전화 연결 및 카카오맵 길찾기)</p>
                         
                         <div class="restaurant-grid">
@@ -185,8 +185,8 @@
                     <!-- 14:00/14:30 카페 휴식 일정 바로 아래에 추천 카페 3선 카드 배치 (장소 이동 타임라인 항목 중복 출력 방지) -->
                     {% if ("디저트 & 뷰카페" in item.title or "14:00" in item.time or "14:30" in item.time) and not ("장소 이동" in item.title or "차량 이동" in item.title or "오후 장소 이동" in item.title) and trip.output.cafeCandidates %}
                     <div class="cafe-inline-box">
-                        <h4 class="cafe-box-title">☕ 어르신 쉬기 좋은 추천 카페 3선</h4>
-                        <p class="cafe-box-sub">아래 3가지 카페 중 뷰가 좋고 이동하기 편리한 곳을 선택해 보세요.</p>
+                        <h4 class="cafe-box-title">☕ [식당 도보권] 추천 카페 3선: {{ trip.output.cafeCandidates[0].name }} 외 2곳</h4>
+                        <p class="cafe-box-sub">점심 식사 후 도보 1~3분 거리에서 편안하게 담소를 나눌 수 있는 카페입니다.</p>
                         
                         <div class="cafe-grid">
                             {% for cafe in trip.output.cafeCandidates %}
