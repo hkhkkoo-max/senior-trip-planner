@@ -1272,24 +1272,19 @@ body {
         text-align: center;
     }
 
-    /* [STEP 4] 관심사 5개: 2열 대칭 그리드 + 마지막 5번째 와이드 */
+    /* [STEP 4] 관심사 6개: 2열 3행 대칭 균등 컴팩트 그리드 */
     .checkbox-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 6px !important;
-        margin-bottom: 10px !important;
+        margin-bottom: 8px !important;
     }
 
     .check-card {
-        padding: 8px 10px !important;
-        font-size: 13.5px !important;
+        padding: 7px 8px !important;
+        font-size: 13px !important;
         gap: 6px !important;
-        border-radius: 12px !important;
-    }
-
-    .check-card:nth-child(5) {
-        grid-column: span 2;
-        justify-content: center;
+        border-radius: 10px !important;
     }
 
     .check-card .icon {

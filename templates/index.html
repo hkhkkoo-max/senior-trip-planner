@@ -15,7 +15,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
     <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/icon-512.png') }}">
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260829_0056">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260829_0920">
 </head>
 <body>
     <div class="app-container">
@@ -190,6 +190,11 @@
                         <span class="icon">🎨</span>
                         <span class="label">박물관 & 전시관</span>
                     </label>
+                    <label class="check-card">
+                        <input type="checkbox" value="추천관광명소" onchange="toggleInterest(this)">
+                        <span class="icon">✨</span>
+                        <span class="label">추천 관광명소</span>
+                    </label>
                 </div>
 
                 <div class="step-actions flex-between">
@@ -242,12 +247,12 @@
         </footer>
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=20260829_0900"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=20260829_0920"></script>
     <!-- PWA Service Worker 등록 -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js?v=20260829_4')
+                navigator.serviceWorker.register('/sw.js?v=20260829_5')
                     .then((reg) => {
                         console.log('[PWA] Service Worker 등록 성공! Scope:', reg.scope);
                     })

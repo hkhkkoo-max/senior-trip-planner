@@ -340,6 +340,57 @@ def fetch_kakao_driving_info(destination_place, origin_place="성남시 분당�
         "toll": 0
     }
 
+def fetch_kakao_tourist_spots(destination_place):
+    """
+    카카오 로컬 API (카테고리 AT4: 관광명소 / 문화시설 / 여행지)를 실시간 검색하여
+    목적지 인근의 인기 관광명소 / 랜드마크 핫플레이스 목록을 반환합니다.
+    """
+    kakao_key = os.getenv("KAKAO_REST_API_KEY")
+    if not kakao_key:
+        return []
+        
+    headers = {"Authorization": f"KakaoAK {kakao_key}"}
+    clean_target = clean_place_name(destination_place) if "clean_place_name" in globals() else destination_place
+    search_queries = [
+        f"{destination_place} 관광명소",
+        f"{clean_target} 명소",
+        f"{destination_place} 가볼만한곳",
+        f"{destination_place} 여행지",
+        destination_place
+    ]
+    
+    for q in search_queries:
+        if not q or len(q.strip()) < 2:
+            continue
+        try:
+            res = requests.get(
+                "https://dapi.kakao.com/v2/local/search/keyword.json",
+                headers=headers,
+                params={"query": q, "category_group_code": "AT4", "size": 5},
+                timeout=3
+            )
+            if res.status_code == 200:
+                docs = res.json().get("documents", [])
+                if docs:
+                    clean_docs = []
+                    for d in docs:
+                        pname = d["place_name"]
+                        cname = d.get("category_name", "").split(">")[-1].strip()
+                        purl = d.get("place_url", "")
+                        addr = d.get("road_address_name") or d.get("address_name", "")
+                        clean_docs.append({
+                            "name": pname,
+                            "category": cname or "추천 랜드마크 명소",
+                            "address": addr,
+                            "place_url": purl,
+                            "mapUrls": make_map_urls(pname, destination_place, purl)
+                        })
+                    return clean_docs
+        except Exception as e:
+            print(f"[WARN] 카카오 관광명소 실시간 검색 예외 ({q}): {e}")
+            
+    return []
+
 def fetch_ev_charger_info(parking_name, region_tag=""):
     """한국환경공단 공공데이터 API를 통해 주차장 인근 EV 충전소 실시간 정보 조회"""
     import urllib.parse
@@ -1973,6 +2024,25 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
 
     # 선택된 관심사들(interests) 중 매핑 가능한 보조 일정 수집
     matched_spots = []
+    
+    # 1. '추천관광명소'가 선택된 경우: 카카오 API 실시간 명소 검색 우선 적용!
+    if any(i in ["추천관광명소", "관광명소", "명소"] for i in interests):
+        realtime_spots = fetch_kakao_tourist_spots(dest_title)
+        if realtime_spots:
+            chosen_spot = None
+            for sp in realtime_spots:
+                # dest_title과 동일한 이름은 제외하고 인근 랜드마크 선택
+                if clean_place_name(dest_title) not in clean_place_name(sp["name"]):
+                    chosen_spot = sp
+                    break
+            if not chosen_spot and realtime_spots:
+                chosen_spot = realtime_spots[0]
+                
+            if chosen_spot:
+                sp_name = chosen_spot["name"]
+                sp_cat = chosen_spot.get("category", "추천 랜드마크 명소")
+                matched_spots.append(("추천 관광명소", (sp_name, "차량 약 10~15분 (5km)", f"{sp_name} 공영주차장")))
+
     for interest_item in interests:
         for key in MARKET_MAP:
             if key in dest_title or key in target_place:
@@ -1987,6 +2057,9 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
                     break
                 elif (interest_item in ["박물관/전시", "박물관"]) and key in MUSEUM_MAP:
                     matched_spots.append(("박물관/전시관", MUSEUM_MAP[key]))
+                    break
+                elif (interest_item in ["추천관광명소", "관광명소"]) and key in MUSEUM_MAP and not any(s[0] == "추천 관광명소" for s in matched_spots):
+                    matched_spots.append(("추천 관광명소", MUSEUM_MAP[key]))
                     break
 
     # 중복 스팟 제거
@@ -2047,6 +2120,10 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             item_icon = "♨️"
             item_title = f"{item_icon} [온천/족욕 힐링] {s_name}"
             item_desc = f"{s_parking} 주차 후 어르신들의 다리 피로를 풀어주는 따뜻한 온천 족욕 쉼 코스입니다."
+        elif s_type == "추천 관광명소":
+            item_icon = "✨"
+            item_title = f"{item_icon} [추천 랜드마크 명소] {s_name}"
+            item_desc = f"{s_parking} 주차 후 {s_name}의 대표적인 볼거리와 풍경을 어르신 발걸음에 맞춰 여유롭게 감상하시는 추천 힐링 코스입니다."
         else: # 박물관/전시관
             item_icon = "🖼️"
             item_title = f"{item_icon} [박물관/전시 관람] {s_name}"
@@ -2132,6 +2209,10 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             item_icon = "♨️"
             item_title = f"{item_icon} [온천/족욕 힐링] {s_name}"
             item_desc = f"{s_parking} 주차 후 다리 피로를 풀어주는 따뜻한 온천 족욕 힐링 코스입니다."
+        elif s_type == "추천 관광명소":
+            item_icon = "✨"
+            item_title = f"{item_icon} [추천 랜드마크 명소] {s_name}"
+            item_desc = f"{s_parking} 주차 후 {s_name}의 대표적인 볼거리와 풍경을 감상하는 추천 탐방 코스입니다."
         else: # 박물관/전시관
             item_icon = "🖼️"
             item_title = f"{item_icon} [박물관/전시 관람] {s_name}"
