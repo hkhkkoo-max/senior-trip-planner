@@ -1,11 +1,11 @@
-const CACHE_NAME = 'senior-trip-v7';
+const CACHE_NAME = 'senior-trip-v8';
 const PRECACHE_ASSETS = [
   '/',
   '/static/css/style.css',
   '/static/js/app.js',
   '/static/manifest.json',
-  '/static/icons/icon-192.png',
-  '/static/icons/icon-512.png',
+  '/static/icons/app-icon-192.png',
+  '/static/icons/app-icon-512.png',
   '/static/images/travel_hero.png'
 ];
 
