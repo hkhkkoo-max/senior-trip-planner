@@ -1429,6 +1429,9 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             unique_spots.append((s_type, s_data))
 
     # 1. 첫 번째 보조 일정 (이동 타임라인과 탐방 타임라인 각각 100% 분리 생성)
+    lunch_location_name = dest_title
+    lunch_location_tag = region_tag
+
     if len(unique_spots) >= 1:
         s_type, (s_name, s_drive, s_parking) = unique_spots[0]
         drive_m = parse_drive_minutes(s_drive, 15)
@@ -1495,12 +1498,52 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             "isVerificationNeeded": False
         })
 
-    # 점심 식사 일정
+        # 점심 식사 위치를 오전 마지막 직전 일정 장소(s_name)로 지정
+        lunch_location_name = s_name
+        
+        # 직전 일정이 메인 명소(dest_title)와 다른 곳으로 이동한 경우, 식당 및 카페를 직전 일정(s_name) 인근으로 실시간 재수집!
+        if clean_place_name(s_name) != clean_place_name(dest_title):
+            lunch_rag = fetch_kakao_nearby_places(s_name, cuisine, radius=2000)
+            if lunch_rag and lunch_rag.get("restaurants") and len(lunch_rag["restaurants"]) >= 1:
+                lunch_location_tag = lunch_rag.get("region_tag", region_tag)
+                rest_list = [
+                    {
+                        "name": r["name"],
+                        "phone": r.get("phone", ""),
+                        "menu": f"[{lunch_location_tag}] {cuisine} 추천 정식 (1인 {lunch_budget:,}원대)",
+                        "walkingInfo": f"현지 {r.get('distance', '도보 3분')}",
+                        "features": f"어르신 속 편한 정갈한 {r.get('category', cuisine)} 상차림 ({r.get('address', '')})",
+                        "certBadge": "🏛️ 지자체 지정 으뜸 맛집",
+                        "place_url": r.get("place_url", ""),
+                        "x": r.get("x"),
+                        "y": r.get("y"),
+                        "mapUrls": make_map_urls(r["name"], lunch_location_tag, r.get("place_url", ""), r.get("x"), r.get("y"))
+                    }
+                    for r in lunch_rag["restaurants"][:3]
+                ]
+            if lunch_rag and lunch_rag.get("cafes") and len(lunch_rag["cafes"]) >= 1:
+                cafe_list = [
+                    {
+                        "name": c["name"],
+                        "phone": c.get("phone", ""),
+                        "dessert": "시그니처 전통차 & 베이커리 디저트",
+                        "walkingInfo": f"식당 {c.get('distance', '도보 3분')}",
+                        "features": f"{c.get('address', '')} 인근, 어르신 쉬기 편한 쉼터",
+                        "certBadge": "☕ 지자체 추천 으뜸 찻집/카페",
+                        "place_url": c.get("place_url", ""),
+                        "x": c.get("x"),
+                        "y": c.get("y"),
+                        "mapUrls": make_map_urls(c["name"], lunch_location_tag, c.get("place_url", ""), c.get("x"), c.get("y"))
+                    }
+                    for c in lunch_rag["cafes"][:3]
+                ]
+
+    # 점심 식사 일정 (오전 직전 일정 장소 인근 도보/근거리 식당 매칭)
     timeline_items.append({
         "time": "12:30 ~ 13:30",
-        "title": f"🍱 [점심 식사] [{dest_title} 인근] {cuisine} 추천 식당 3선 중 선택",
-        "description": f"12:30 점심 식사 시간입니다. 주차장에서 도보 2~4분 거리의 아래 [🍱 지자체 추천 {cuisine} 식당 3선] 중 마음에 드는 식당으로 이동하세요. (1인 예산 약 {lunch_budget:,}원)",
-        "walkingInfo": "주차장에서 도보 2~4분",
+        "title": f"🍱 [점심 식사] [{lunch_location_name} 인근] {cuisine} 추천 식당 3선 중 선택",
+        "description": f"12:30 점심 식사 시간입니다. {lunch_location_name}에서 도보 2~4분 거리의 아래 [🍱 지자체 추천 {cuisine} 식당 3선] 중 마음에 드는 식당으로 이동하세요. (1인 예산 약 {lunch_budget:,}원)",
+        "walkingInfo": f"{lunch_location_name} 도보 2~4분",
         "mapUrls": rest_list[0]["mapUrls"],
         "isVerificationNeeded": True,
         "note": "인기 식당은 방문 전 전화로 예약 및 당일 영업 확인을 권장합니다."
