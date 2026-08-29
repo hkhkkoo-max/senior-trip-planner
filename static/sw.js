@@ -1,4 +1,4 @@
-const CACHE_NAME = 'senior-trip-v8';
+const CACHE_NAME = 'senior-trip-v9';
 const PRECACHE_ASSETS = [
   '/',
   '/static/css/style.css',
