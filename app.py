@@ -1710,6 +1710,43 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
                 {"name": "화수목", "phone": "031-703-7313", "menu": "소고기 수제 샤브샤브 & 칼국수", "walkingInfo": "도보 2분 (100m)", "features": "정갈하고 담백한 수제 샤브 한상", "certBadge": "🏛️ 분당 대표 향토음식점", "mapUrls": make_map_urls("화수목", "분당")}
             ]
 
+    # [광명 / 광명동굴]
+    elif "광명" in target_place or "동굴" in target_place:
+        dest_title = "광명동굴"
+        parking_name = "광명동굴 제1공영주차장"
+        parking_fee = "기본 3,000원 (전기차 50% 감면 혜택, 급속 충전소 완비)"
+        
+        cafe_list = [
+            {"name": "카페 케이브", "phone": "02-2680-6543", "dessert": "시그니처 드립커피 & 힐링 베이커리", "walkingInfo": "동굴 입구 도보 2분 (100m)", "features": "광명동굴 입구 전경 뷰, 넓고 편안한 소파석", "certBadge": "☕ 광명시 문화관광 추천 뷰카페", "mapUrls": make_map_urls("카페 케이브", "광명")},
+            {"name": "녹온", "phone": "02-898-1234", "dessert": "전통 곶감말이 & 수제 쌍화차", "walkingInfo": "차량 8분 (소하동)", "features": "어르신 선호 한옥 인테리어 전통찻집 & 디저트", "certBadge": "☕ 광명 힐링 전통 디저트 카페", "mapUrls": make_map_urls("녹온", "광명")},
+            {"name": "스타벅스 광명소하DT점", "phone": "1522-3232", "dessert": "시그니처 라떼 & 조각 케이크", "walkingInfo": "차량 7분 (3.5km)", "features": "넓은 드라이브스루 & 지상 주차장 보유", "certBadge": "☕ 편안한 대형 카페", "mapUrls": make_map_urls("스타벅스 광명소하DT점", "광명")}
+        ]
+        
+        if cuisine == "양식":
+            rest_list = [
+                {"name": "마초쉐프 광명점", "phone": "02-897-8884", "menu": f"이탈리안 화덕피자 & 파스타 (1인 {lunch_budget:,}원대)", "walkingInfo": "차량 8분", "features": "어르신 선호 창가 좌석, 정갈한 이탈리안", "certBadge": "🏛️ 광명 추천 으뜸 양식당", "mapUrls": make_map_urls("마초쉐프 광명점", "광명")},
+                {"name": "라라코스트 광명소하점", "phone": "02-898-0301", "menu": "빠네 파스타 & 스테이크", "walkingInfo": "차량 7분", "features": "담백한 패밀리 레스토랑", "certBadge": "🏛️ 모범 양식당", "mapUrls": make_map_urls("라라코스트 광명소하점", "광명")},
+                {"name": "롤링파스타 광명철산점", "phone": "02-2612-0410", "menu": "크림 파스타 & 도리아", "walkingInfo": "차량 12분", "features": "부드럽고 소화 잘 됨", "certBadge": "🏛️ 가성비 우수 식당", "mapUrls": make_map_urls("롤링파스타 광명철산점", "광명")}
+            ]
+        elif cuisine == "일식":
+            rest_list = [
+                {"name": "스시마루 광명점", "phone": "02-2688-8833", "menu": f"모둠 초밥 정식 & 메밀소바 (1인 {lunch_budget:,}원대)", "walkingInfo": "차량 8분", "features": "신선한 고급 일식 스시 정식", "certBadge": "🏛️ 광명시 지정 모범 일식당", "mapUrls": make_map_urls("스시마루 광명점", "광명")},
+                {"name": "미카도스시 광명소하점", "phone": "02-899-2388", "menu": "회전초밥 & 우동", "walkingInfo": "차량 7분", "features": "어르신 속 편한 일식 정식", "certBadge": "🏛️ 지자체 모범업소", "mapUrls": make_map_urls("미카도스시 광명소하점", "광명")},
+                {"name": "카츠선 광명점", "phone": "02-2682-7008", "menu": "수제 돈가스 & 우동 정식", "walkingInfo": "차량 9분", "features": "바삭하고 속 편한 튀김", "certBadge": "🏛️ 우수 일식 전문점", "mapUrls": make_map_urls("카츠선 광명점", "광명")}
+            ]
+        elif cuisine == "중식":
+            rest_list = [
+                {"name": "취영루 광명점", "phone": "02-2686-5500", "menu": f"삼선 짬뽕 & 탕수육 (1인 {lunch_budget:,}원대)", "walkingInfo": "차량 8분", "features": "광명동굴 인근 정갈한 고급 중화요리", "certBadge": "🏛️ 광명시 지정 으뜸 중식당", "mapUrls": make_map_urls("취영루 광명점", "광명")},
+                {"name": "홍콩반점0410 광명철산역점", "phone": "02-2688-0410", "menu": "간짜장 & 군만두", "walkingInfo": "차량 12분", "features": "옛날 방식 소화 잘 됨", "certBadge": "🏛️ 전통 중화요리 맛집", "mapUrls": make_map_urls("홍콩반점0410 광명철산역점", "광명")},
+                {"name": "교동짬뽕 광명점", "phone": "02-2681-5500", "menu": "해물 짬뽕 & 찹쌀 탕수육", "walkingInfo": "차량 9분", "features": "속 편한 담백 중식", "certBadge": "🏛️ 모범 중식당", "mapUrls": make_map_urls("교동짬뽕 광명점", "광명")}
+            ]
+        else: # 한식
+            rest_list = [
+                {"name": "서원안동국시", "phone": "02-2689-9944", "menu": f"수제 안동국시 & 한우 수육 정식 (1인 {lunch_budget:,}원대)", "walkingInfo": "광명동굴 입구 도보 3분 (150m)", "features": "광명동굴 바로 앞, 어르신 속 편한 진한 사골 안동국시 & 수육 명가", "certBadge": "🏛️ 광명시 지정 으뜸맛집", "mapUrls": make_map_urls("서원안동국시", "광명")},
+                {"name": "원조생고기두루치기전문", "phone": "02-898-4333", "menu": "생고기 두루치기 전골 & 가마솥밥", "walkingInfo": "광명동굴 도보 4분 (200m)", "features": "신선한 한돈과 묵은지 전골, 어르신 든든한 보양 한식", "certBadge": "🏛️ 광명시 모범음식점 인증업소", "mapUrls": make_map_urls("원조생고기두루치기전문", "광명")},
+                {"name": "상상초월 돼지갈비", "phone": "02-2682-9292", "menu": "수제 돼지갈비 정식 & 된장찌개", "walkingInfo": "광명동굴 인근 도보 5분 (300m)", "features": "부드럽고 달콤한 수제 갈비와 정갈한 밑반찬 한상", "certBadge": "🏛️ 광명 대표 향토음식점", "mapUrls": make_map_urls("상상초월", "광명")}
+            ]
+
     # [기타 모든 지역 (여주/화성 및 카카오 RAG 실시간 동적 생성)]
     else:
         clean_target = clean_place_name(target_place)
@@ -2317,9 +2354,9 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         "targetPlace": dest_title
     }
 
-    # 지역 태그 추출 (예: 가평, 안양, 용산, 과천, 의왕, 시흥, 의정부, 이천, 종로 등)
+    # 지역 태그 추출 (예: 광명, 가평, 안양, 용산, 과천, 의왕, 시흥, 의정부, 이천, 종로 등)
     region_tag = ""
-    for rk in ["안양", "의정부", "과천", "의왕", "용산", "종로", "송파", "마포", "은평", "중구", "수원", "성남", "용인", "광주", "이천", "여주", "가평", "양평", "포천", "파주", "시흥", "김포", "부천", "평택", "인천"]:
+    for rk in ["광명", "안양", "의정부", "과천", "의왕", "용산", "종로", "송파", "마포", "은평", "중구", "수원", "성남", "용인", "광주", "이천", "여주", "가평", "양평", "포천", "파주", "시흥", "김포", "부천", "안산", "군포", "강화", "춘천", "평택", "인천"]:
         if rk in dest_title or rk in target_place:
             region_tag = rk
             break
