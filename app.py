@@ -16,12 +16,12 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "senior_trip_secret_2026")
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
-# 환경변수 설정값 (서버 환경에 .env 키가 비어있어도 100% 카카오 RAG가 정상 작동하도록 안전 키 내장)
+# 환경변수 설정값 (보안: .env 파일에서만 키를 읽어오도록 안전하게 격리)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 EV_API_KEY = os.getenv("EV_API_KEY", "").strip()
 GG_DATA_API_KEY = os.getenv("GG_DATA_API_KEY", "").strip()
 SEOUL_DATA_API_KEY = os.getenv("SEOUL_DATA_API_KEY", "").strip()
-KAKAO_REST_API_KEY = os.getenv("KAKAO_REST_API_KEY", "").strip() or "38fda3acc620befe1bb71a3304cba062"
+KAKAO_REST_API_KEY = os.getenv("KAKAO_REST_API_KEY", "").strip()
 APP_PASSWORD = os.getenv("APP_PASSWORD", "4775").strip()
 TRIPS_DB_FILE = os.path.join(basedir, "trips.json")
 
