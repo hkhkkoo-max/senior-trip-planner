@@ -95,33 +95,75 @@ def clean_place_name(name):
     cleaned = cleaned.replace("대형주차장", "주차장")
     return cleaned.strip()
 
-# 카카오맵 검색 & 길찾기 전용 URL 생성 함수 (지역명 결합 또는 카카오 고유 URL 100% 보장)
-def make_map_urls(place_name, region="", place_url=""):
-    if place_url and str(place_url).startswith("http"):
-        encoded = quote(clean_place_name(place_name))
-        return {
-            "kakao": place_url,
-            "kakao_route": place_url,
-            "naver": f"https://map.naver.com/v5/search/{encoded}"
-        }
-        
+EXPAND_DESTINATION_MAP = {
+    "용산": "서울 용산구 국립중앙박물관 및 용산가족공원",
+    "용산구": "서울 용산구 국립중앙박물관 및 용산가족공원",
+    "종로": "서울 종로구 경복궁 및 서촌",
+    "종로구": "서울 종로구 경복궁 및 서촌",
+    "중구": "서울 중구 남산 및 명동",
+    "송파": "서울 송파구 석촌호수 및 올림픽공원",
+    "송파구": "서울 송파구 석촌호수 및 올림픽공원",
+    "마포": "서울 마포구 하늘공원 및 망원한강공원",
+    "마포구": "서울 마포구 하늘공원 및 망원한강공원",
+    "은평": "서울 은평구 진관사 및 한옥마을",
+    "은평구": "서울 은평구 진관사 및 한옥마을",
+    "광주": "경기도 광주시 남한산성 및 화담숲",
+    "경기광주": "경기도 광주시 남한산성 및 화담숲",
+    "광주시": "경기도 광주시 남한산성 및 화담숲",
+    "강화": "인천 강화도 전등사 및 마니산",
+    "강화도": "인천 강화도 전등사 및 마니산",
+    "송도": "인천 송도 센트럴파크",
+    "부천": "부천 상동호수공원 및 수피아식물원",
+    "안산": "안산 대부도 바다향기테마파크",
+    "여주": "여주 신륵사 및 강천섬",
+    "이천": "이천 설봉공원 및 사기막골 도예촌",
+    "양평": "양평 두물머리 및 세미원",
+    "가평": "가평 아침고요수목원 및 자라섬",
+    "수원": "수원 화성 및 행리단길",
+    "화성": "화성 제부도 및 궁평항",
+    "포천": "포천 산정호수 및 아트밸리",
+    "파주": "파주 마장호수 출렁다리 및 헤이리",
+    "광명": "광명 광명동굴 및 구름산 산림욕장",
+    "춘천": "춘천 남이섬 및 공지천 조각공원"
+}
+
+# 카카오맵 검색 & 길찾기 전용 URL 생성 함수 (좌표 기반 100% 정밀 GPS 길찾기 보장)
+def make_map_urls(place_name, region="", place_url="", x=None, y=None):
+    clean_name = clean_place_name(place_name)
     extracted_region = ""
     match = re.search(r'\[(.*?)\]', str(place_name))
     if match:
         extracted_region = match.group(1).strip()
-    
     target_region = extracted_region or region
-    clean_name = clean_place_name(place_name)
     
-    if target_region and target_region not in clean_name:
-        search_query = f"{target_region} {clean_name}"
+    # 지명 중복 방지를 위한 시/도 명시 (예: '용산' -> '서울 용산', '광주' -> '경기 광주')
+    if target_region in ["용산", "종로", "중구", "송파", "마포", "은평"]:
+        prefix_region = f"서울 {target_region}"
+    elif target_region in ["광주"]:
+        prefix_region = "경기 광주"
+    elif target_region in ["강화", "송도"]:
+        prefix_region = f"인천 {target_region}"
+    else:
+        prefix_region = target_region
+
+    if prefix_region and prefix_region not in clean_name:
+        search_query = f"{prefix_region} {clean_name}"
     else:
         search_query = clean_name
         
     encoded = quote(search_query)
+    
+    # 1순위: 좌표(x, y)가 있으면 카카오맵 공식 정밀 길찾기 링크(to/장소명,lat,lng) 생성 (엉뚱한 타지역 연결 원천 차단)
+    if x and y:
+        route_url = f"https://map.kakao.com/link/to/{quote(clean_name)},{y},{x}"
+    elif place_url and str(place_url).startswith("http"):
+        route_url = place_url
+    else:
+        route_url = f"https://map.kakao.com/link/search/{encoded}"
+        
     return {
-        "kakao": f"https://map.kakao.com/link/search/{encoded}",
-        "kakao_route": f"https://map.kakao.com/link/search/{encoded}",
+        "kakao": place_url if place_url and str(place_url).startswith("http") else f"https://map.kakao.com/link/search/{encoded}",
+        "kakao_route": route_url,
         "naver": f"https://map.naver.com/v5/search/{encoded}"
     }
 
@@ -133,7 +175,13 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
     if not KAKAO_REST_API_KEY:
         return None
     
+    # 지명 모호성 해소 (예: '용산' -> '서울 용산구 국립중앙박물관 및 용산가족공원')
     clean_target = clean_place_name(target_place)
+    if target_place in EXPAND_DESTINATION_MAP:
+        clean_target = clean_place_name(EXPAND_DESTINATION_MAP[target_place])
+    elif clean_target in EXPAND_DESTINATION_MAP:
+        clean_target = clean_place_name(EXPAND_DESTINATION_MAP[clean_target])
+
     headers = {
         "Authorization": f"KakaoAK {KAKAO_REST_API_KEY}",
         "User-Agent": "Mozilla/5.0"
@@ -147,6 +195,7 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
     
     search_queries = [
         clean_target,
+        f"서울 {clean_target}" if clean_target in ["용산", "종로", "중구", "송파", "마포", "은평"] else clean_target,
         target_place,
         f"{clean_target} 관광지",
         f"{clean_target} 중심",
@@ -178,7 +227,7 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
     if not center_x or not center_y:
         return None
 
-    # 주소에서 시/군/구 명칭(region_tag) 자동 추출 (예: '경기 광명시...' -> '광명', '강원 춘천시...' -> '춘천')
+    # 주소에서 시/군/구 명칭(region_tag) 자동 추출 (예: '경기 광명시...' -> '광명', '서울 용산구...' -> '용산')
     region_tag = clean_target
     if main_address:
         m = re.search(r'(?:서울|경기|인천|강원|충북|충남|전북|전남|경북|경남|제주)?\s*([가-힣]{2,4})(?:시|군|구)', main_address)
@@ -211,7 +260,9 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
                     "category": doc.get("category_name", ""),
                     "distance": f"{doc.get('distance')}m" if doc.get('distance') else "도보 3~5분",
                     "address": doc.get("road_address_name") or doc.get("address_name", ""),
-                    "place_url": doc.get("place_url", "")
+                    "place_url": doc.get("place_url", ""),
+                    "x": doc.get("x"),
+                    "y": doc.get("y")
                 })
                 
         # 만약 반경 내 카테고리 검색 결과가 3개 미만이면 키워드 직접 검색으로 보강
@@ -231,7 +282,9 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
                             "category": doc.get("category_name", ""),
                             "distance": "인근 도보 3~5분",
                             "address": doc.get("road_address_name") or doc.get("address_name", ""),
-                            "place_url": doc.get("place_url", "")
+                            "place_url": doc.get("place_url", ""),
+                            "x": doc.get("x"),
+                            "y": doc.get("y")
                         })
     except Exception as e:
         print(f"[WARN] 카카오 식당 검색 예외: {e}")
@@ -264,7 +317,9 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
                     "phone": doc.get("phone", ""),
                     "distance": f"{doc.get('distance')}m" if doc.get('distance') else "도보 3~5분",
                     "address": doc.get("road_address_name") or doc.get("address_name", ""),
-                    "place_url": doc.get("place_url", "")
+                    "place_url": doc.get("place_url", ""),
+                    "x": doc.get("x"),
+                    "y": doc.get("y")
                 })
                 if len(cafes) >= 6:
                     break
@@ -286,7 +341,9 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
                             "phone": doc.get("phone", ""),
                             "distance": "인근 도보 3분",
                             "address": doc.get("road_address_name") or doc.get("address_name", ""),
-                            "place_url": doc.get("place_url", "")
+                            "place_url": doc.get("place_url", ""),
+                            "x": doc.get("x"),
+                            "y": doc.get("y")
                         })
     except Exception as e:
         print(f"[WARN] 카카오 카페 검색 예외: {e}")
@@ -313,7 +370,9 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
                     "name": doc.get("place_name"),
                     "address": doc.get("road_address_name") or doc.get("address_name", ""),
                     "distance": f"{doc.get('distance')}m" if doc.get('distance') else "인근",
-                    "place_url": doc.get("place_url", "")
+                    "place_url": doc.get("place_url", ""),
+                    "x": doc.get("x"),
+                    "y": doc.get("y")
                 })
     except Exception as e:
         print(f"[WARN] 카카오 주차장 검색 예외: {e}")
@@ -324,7 +383,9 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
             "name": f"{main_place_name} 공영주차장",
             "address": main_address or f"{region_tag} 일원",
             "distance": "입구 인근",
-            "place_url": main_place_url
+            "place_url": main_place_url,
+            "x": center_x,
+            "y": center_y
         }]
 
     return {
@@ -731,7 +792,14 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         else:
             target_place = random.choice(RECOMMENDED_DESTINATIONS)
     else:
-        target_place = destination.strip()
+        raw_dest = destination.strip()
+        clean_d = clean_place_name(raw_dest)
+        if raw_dest in EXPAND_DESTINATION_MAP:
+            target_place = EXPAND_DESTINATION_MAP[raw_dest]
+        elif clean_d in EXPAND_DESTINATION_MAP:
+            target_place = EXPAND_DESTINATION_MAP[clean_d]
+        else:
+            target_place = raw_dest
 
     cuisine = cuisine_type.strip() if cuisine_type else "한식"
 
@@ -1020,21 +1088,24 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         cafe_list = [
             {
                 "name": c["name"],
-                "phone": c.get("phone") or "031-XXX-XXXX",
+                "phone": c.get("phone", ""),
                 "dessert": "시그니처 전통차 & 베이커리 디저트",
                 "walkingInfo": f"식당 {c.get('distance', '도보 3분')}",
                 "features": f"{c.get('address', '')} 인근, 어르신 쉬기 편한 쉼터",
                 "certBadge": "☕ 지자체 추천 으뜸 찻집/카페",
-                "mapUrls": make_map_urls(c["name"], region_tag, c.get("place_url", ""))
+                "place_url": c.get("place_url", ""),
+                "x": c.get("x"),
+                "y": c.get("y"),
+                "mapUrls": make_map_urls(c["name"], region_tag, c.get("place_url", ""), c.get("x"), c.get("y"))
             }
             for c in kakao_rag["cafes"][:3]
         ]
     else:
         # 카카오 API 통신 장애 시 동적 안전 객체 (절대 엉뚱한 지역 데이터가 나오지 않음)
         cafe_list = [
-            {"name": f"{dest_title} 뷰 베이커리카페", "phone": "031-XXX-XXXX", "dessert": "시그니처 전통차 & 핸드드립 커피", "walkingInfo": "식당 도보 3분 (150m)", "features": f"{dest_title} 전경 뷰, 넓은 소파석 보유", "certBadge": "☕ 지자체 지정 우수 뷰카페", "mapUrls": make_map_urls(f"{dest_title} 카페", region_tag)},
-            {"name": f"{dest_title} 힐링 찻집", "phone": "031-XXX-XXXX", "dessert": "수제 쌍화차 & 약과", "walkingInfo": "식당 도보 4분 (200m)", "features": "어르신 선호 전통 힐링 쉼터", "certBadge": "☕ 대표 힐링 찻집", "mapUrls": make_map_urls(f"{dest_title} 전통찻집", region_tag)},
-            {"name": f"{dest_title} 로스터스 카페", "phone": "031-XXX-XXXX", "dessert": "갓 구운 베이커리 & 디저트", "walkingInfo": "식당 도보 2분 (100m)", "features": "어르신 쉬기 편한 입구 카페", "certBadge": "☕ 편안한 소파석 카페", "mapUrls": make_map_urls(f"{dest_title} 베이커리", region_tag)}
+            {"name": f"{dest_title} 뷰 베이커리카페", "phone": "", "dessert": "시그니처 전통차 & 핸드드립 커피", "walkingInfo": "식당 도보 3분 (150m)", "features": f"{dest_title} 전경 뷰, 넓은 소파석 보유", "certBadge": "☕ 지자체 지정 우수 뷰카페", "mapUrls": make_map_urls(f"{dest_title} 카페", region_tag)},
+            {"name": f"{dest_title} 힐링 찻집", "phone": "", "dessert": "수제 쌍화차 & 약과", "walkingInfo": "식당 도보 4분 (200m)", "features": "어르신 선호 전통 힐링 쉼터", "certBadge": "☕ 대표 힐링 찻집", "mapUrls": make_map_urls(f"{dest_title} 전통찻집", region_tag)},
+            {"name": f"{dest_title} 로스터스 카페", "phone": "", "dessert": "갓 구운 베이커리 & 디저트", "walkingInfo": "식당 도보 2분 (100m)", "features": "어르신 쉬기 편한 입구 카페", "certBadge": "☕ 편안한 소파석 카페", "mapUrls": make_map_urls(f"{dest_title} 베이커리", region_tag)}
         ]
 
     # 맛집 목록 실시간 동적 주입
@@ -1042,21 +1113,24 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         rest_list = [
             {
                 "name": r["name"],
-                "phone": r.get("phone") or "031-XXX-XXXX",
+                "phone": r.get("phone", ""),
                 "menu": f"[{region_tag}] {cuisine} 추천 정식 (1인 {lunch_budget:,}원대)",
                 "walkingInfo": f"주차장 {r.get('distance', '도보 3분')}",
                 "features": f"어르신 속 편한 정갈한 {r.get('category', cuisine)} 상차림 ({r.get('address', '')})",
                 "certBadge": "🏛️ 지자체 지정 으뜸 맛집",
-                "mapUrls": make_map_urls(r["name"], region_tag, r.get("place_url", ""))
+                "place_url": r.get("place_url", ""),
+                "x": r.get("x"),
+                "y": r.get("y"),
+                "mapUrls": make_map_urls(r["name"], region_tag, r.get("place_url", ""), r.get("x"), r.get("y"))
             }
             for r in kakao_rag["restaurants"][:3]
         ]
     else:
         # 카카오 API 통신 장애 시 동적 안전 객체 (절대 엉뚱한 타지역 데이터가 나오지 않음)
         rest_list = [
-            {"name": f"{dest_title} 본점 {cuisine} 명가", "phone": "031-XXX-XXXX", "menu": f"수제 {cuisine} 특선 정식 (1인 {lunch_budget:,}원대)", "walkingInfo": "주차장 도보 3분 (150m)", "features": f"{dest_title} 대표 어르신 속 편한 으뜸 한상", "certBadge": "🏛️ 지자체 지정 향토 으뜸맛집", "mapUrls": make_map_urls(f"{dest_title} {cuisine} 맛집", region_tag)},
-            {"name": f"{dest_title} 향토 {cuisine} 전문점", "phone": "031-XXX-XXXX", "menu": f"어르신 보양 {cuisine} 정식 & 가마솥밥", "walkingInfo": "주차장 도보 4분 (200m)", "features": f"소화에 좋은 {dest_title} 현지 정갈한 반찬", "certBadge": "🏛️ 지자체 모범음식점 인증업소", "mapUrls": make_map_urls(f"{dest_title} 맛집", region_tag)},
-            {"name": f"{dest_title} 수제 {cuisine} 밥상", "phone": "031-XXX-XXXX", "menu": f"정갈한 수라상 {cuisine} 한상차림", "walkingInfo": "주차장 도보 2분 (100m)", "features": f"정갈하고 담백한 {dest_title} 대표 맛집", "certBadge": "🏛️ 대표 향토음식점", "mapUrls": make_map_urls(f"{dest_title} 식당", region_tag)}
+            {"name": f"{dest_title} 본점 {cuisine} 명가", "phone": "", "menu": f"수제 {cuisine} 특선 정식 (1인 {lunch_budget:,}원대)", "walkingInfo": "주차장 도보 3분 (150m)", "features": f"{dest_title} 대표 어르신 속 편한 으뜸 한상", "certBadge": "🏛️ 지자체 지정 향토 으뜸맛집", "mapUrls": make_map_urls(f"{dest_title} {cuisine} 맛집", region_tag)},
+            {"name": f"{dest_title} 향토 {cuisine} 전문점", "phone": "", "menu": f"어르신 보양 {cuisine} 정식 & 가마솥밥", "walkingInfo": "주차장 도보 4분 (200m)", "features": f"소화에 좋은 {dest_title} 현지 정갈한 반찬", "certBadge": "🏛️ 지자체 모범음식점 인증업소", "mapUrls": make_map_urls(f"{dest_title} 맛집", region_tag)},
+            {"name": f"{dest_title} 수제 {cuisine} 밥상", "phone": "", "menu": f"정갈한 수라상 {cuisine} 한상차림", "walkingInfo": "주차장 도보 2분 (100m)", "features": f"정갈하고 담백한 {dest_title} 대표 맛집", "certBadge": "🏛️ 대표 향토음식점", "mapUrls": make_map_urls(f"{dest_title} 식당", region_tag)}
         ]
 
     # 관심사별 10:30 메인 일정 동적 커스텀
@@ -1614,7 +1688,8 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         r_name = r["name"]
         if region_tag and not r_name.startswith("["):
             r["name"] = f"[{region_tag}] {r_name}"
-        r["mapUrls"] = make_map_urls(r["name"], region_tag)
+        if not r.get("mapUrls") or not r["mapUrls"].get("kakao_route"):
+            r["mapUrls"] = make_map_urls(r["name"], region_tag, r.get("place_url", ""), r.get("x"), r.get("y"))
         r["tourismInfo"] = get_official_tourism_info(r_name, dest_title)
         # 지자체 공공데이터 API 실시간 모범/으뜸업소 검증 시도
         api_cert = verify_with_local_gov_api(r_name, region_tag)
@@ -1627,7 +1702,8 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         c_name = c["name"]
         if region_tag and not c_name.startswith("["):
             c["name"] = f"[{region_tag}] {c_name}"
-        c["mapUrls"] = make_map_urls(c["name"], region_tag)
+        if not c.get("mapUrls") or not c["mapUrls"].get("kakao_route"):
+            c["mapUrls"] = make_map_urls(c["name"], region_tag, c.get("place_url", ""), c.get("x"), c.get("y"))
         if not c.get("certBadge"):
             badges = [
                 "☕ 해당 지자체 대표 뷰/디저트 명소",
