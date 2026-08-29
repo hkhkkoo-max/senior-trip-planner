@@ -143,14 +143,12 @@
                                 <!-- 1번째 줄: 상호명 (좌) & 전화번호/전화연결 (우) -->
                                 <div class="rest-header">
                                     <h4>{{ loop.index }}. {{ rest.name }}</h4>
+                                    {% if rest.phone and 'XXX' not in rest.phone and rest.phone.strip() %}
                                     <div class="phone-box">
-                                        {% if rest.phone and 'XXX' not in rest.phone and rest.phone.strip() %}
                                         <span class="phone-number">📞 {{ rest.phone }}</span>
                                         <a href="tel:{{ rest.phone }}" class="btn-call no-print">전화연결</a>
-                                        {% elif rest.mapUrls and rest.mapUrls.kakao %}
-                                        <a href="{{ rest.mapUrls.kakao }}" target="_blank" class="btn-call no-print" style="background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; font-weight: 700;">📞 매장정보</a>
-                                        {% endif %}
                                     </div>
+                                    {% endif %}
                                 </div>
 
                                 <!-- 2번째 줄: 지자체 인증 (좌) & 카카오맵 검색 (우) 나란히 배치 -->
@@ -194,14 +192,12 @@
                                 <!-- 1번째 줄: 상호명 (좌) & 전화번호/전화연결 (우) -->
                                 <div class="cafe-header">
                                     <h4>{{ loop.index }}. {{ cafe.name }}</h4>
+                                    {% if cafe.phone and 'XXX' not in cafe.phone and cafe.phone.strip() %}
                                     <div class="phone-box">
-                                        {% if cafe.phone and 'XXX' not in cafe.phone and cafe.phone.strip() %}
                                         <span class="phone-number">📞 {{ cafe.phone }}</span>
                                         <a href="tel:{{ cafe.phone }}" class="btn-call btn-call-cafe no-print">전화연결</a>
-                                        {% elif cafe.mapUrls and cafe.mapUrls.kakao %}
-                                        <a href="{{ cafe.mapUrls.kakao }}" target="_blank" class="btn-call btn-call-cafe no-print" style="background: #f1f5f9; color: #1e293b; border: 1px solid #cbd5e1; font-weight: 700;">📞 매장정보</a>
-                                        {% endif %}
                                     </div>
+                                    {% endif %}
                                 </div>
 
                                 <!-- 2번째 줄: 지자체/관광 인증 (좌) & 카카오맵 검색 (우) 나란히 배치 -->
