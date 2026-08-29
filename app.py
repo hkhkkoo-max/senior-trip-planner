@@ -649,20 +649,31 @@ STEALTH_HEADERS = {
 }
 
 def get_official_tourism_info(restaurant_name, destination=""):
-    """서울/경기 목적지 자동 판별 및 공식 관광 포털(Visit Seoul / GG Tour) 연동 정보 생성"""
+    """전국 목적지 자동 판별 및 공식 관광 포털(Visit Seoul / GG Tour / 강원관광 / 한국관광공사) 연동 정보 생성"""
     clean_name = clean_place_name(restaurant_name)
     encoded_name = quote(clean_name)
     
-    # 서울 주요 지역 판별 키워드
+    # 지역별 판별 키워드
     seoul_keywords = [
         "서울", "종로", "중구", "광화문", "세종로", "시청", "을지로", "명동", "남산", "덕수궁", "경복궁",
         "창경궁", "창덕궁", "인사동", "익선동", "삼청동", "청계천", "동대문", "DDP", "남대문", "서울역",
         "용산", "이촌", "한남", "송파", "잠실", "석촌", "올림픽", "마포", "서대문", "은평", "여의도",
         "영등포", "강남", "서초", "성수", "서울숲", "뚝섬", "반포", "한강", "진관사"
     ]
-    is_seoul = any(kw in destination or kw in restaurant_name for kw in seoul_keywords)
+    gangwon_keywords = [
+        "강원", "춘천", "남이섬", "원주", "강릉", "속초", "평창", "홍천", "정선", "동해", "삼척", "양양", "고성", "태백", "영월", "인제", "철원", "화천", "양구"
+    ]
+    incheon_keywords = [
+        "인천", "송도", "영종도", "강화", "강화도", "소래포구", "월미도", "차이나타운", "을왕리", "부평", "계양"
+    ]
+    gyeonggi_keywords = [
+        "경기", "성남", "분당", "판교", "수원", "용인", "화성", "광주", "남한산성", "이천", "여주", "가평", "양평",
+        "포천", "파주", "안양", "과천", "의왕", "군포", "안산", "대부도", "시흥", "광명", "부천", "김포", "남양주", "고양", "일산", "의정부", "하남", "구리", "평택", "안성", "오산", "동두천", "양주", "연천"
+    ]
     
-    if is_seoul:
+    full_str = f"{destination} {restaurant_name}"
+    
+    if any(kw in full_str for kw in seoul_keywords):
         return {
             "isSeoul": True,
             "portalName": "Visit Seoul (서울맛집모아)",
@@ -670,14 +681,37 @@ def get_official_tourism_info(restaurant_name, destination=""):
             "searchUrl": f"https://korean.visitseoul.net/restaurants?keyword={encoded_name}",
             "badgeText": "🏛️ 서울관광재단 공식 인증 맛집"
         }
-    else:
-        # 경기 지역 (경기관광공사 GG Tour)
+    elif any(kw in full_str for kw in gangwon_keywords):
+        return {
+            "isSeoul": False,
+            "portalName": "강원관광 (Gangwon Tour)",
+            "url": "https://www.gangwon.to/",
+            "searchUrl": f"https://korean.visitkorea.or.kr/search/search_list.do?keyword={encoded_name}",
+            "badgeText": "🏛️ 강원특별자치도 문화관광 추천 맛집"
+        }
+    elif any(kw in full_str for kw in incheon_keywords):
+        return {
+            "isSeoul": False,
+            "portalName": "인천투어 (Incheon Tour)",
+            "url": "https://itour.incheon.go.kr/",
+            "searchUrl": f"https://korean.visitkorea.or.kr/search/search_list.do?keyword={encoded_name}",
+            "badgeText": "🏛️ 인천광역시 공식 추천 맛집"
+        }
+    elif any(kw in full_str for kw in gyeonggi_keywords):
         return {
             "isSeoul": False,
             "portalName": "경기관광 (GG Tour)",
             "url": "https://ggtour.or.kr/travel-info/restaurant?area-select=0&keyword-input=",
             "searchUrl": f"https://ggtour.or.kr/travel-info/restaurant?area-select=0&keyword-input={encoded_name}",
             "badgeText": "🏛️ 경기관광공사 공식 추천 맛집"
+        }
+    else:
+        return {
+            "isSeoul": False,
+            "portalName": "대한민국 구석구석 (한국관광공사)",
+            "url": "https://korean.visitkorea.or.kr/",
+            "searchUrl": f"https://korean.visitkorea.or.kr/search/search_list.do?keyword={encoded_name}",
+            "badgeText": "🏛️ 지자체 공식 문화관광 추천 맛집"
         }
 
 def verify_with_local_gov_api(restaurant_name, region_tag=""):
@@ -1782,8 +1816,12 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             ]
             c["certBadge"] = badges[idx % len(badges)]
 
-    # 미반영 관심사 사유 자동 안내 주입
+    # 미반영 관심사 사유 및 장거리 운전 안내 주입
     note = check_unmatched_interests(interests, dest_title, ret)
+    if drive_min >= 150:
+        long_dist_tip = f"💡 [장거리 이동 안심 안내] 편도 약 {drive_dur_str} 소요되는 원거리 코스입니다. 어르신의 편안한 관절과 피로 회복을 위해 고속도로 휴게소에서 15~20분씩 여유롭게 쉬어가시는 것을 추천합니다."
+        note = f"{note}\n\n{long_dist_tip}" if note else long_dist_tip
+
     if note:
         ret["unmatchedInterestsNote"] = note
 
@@ -1854,34 +1892,7 @@ def generate_trip():
     interests = data.get("interests", ["자연/둘레길"])
     companion_count = int(data.get("companionCount", 2))
     
-    # 2-1. 지원 범위 이외 지역 검증 (분당 출발 2시간 이내 서울/경기/인천 전역 지원)
-    valid_region_keywords = [
-        # 서울 25개 전 자치구
-        "서울", "종로", "중구", "용산", "성동", "광진", "동대문", "중랑", "성북", "강북", "도봉", "노원", "은평", "서대문", "마포", "양천", "강서", "구로", "금천", "영등포", "동작", "관악", "서초", "강남", "송파", "강동",
-        # 서울 도심 & 핵심 랜드마크 & 재래시장
-        "남대문", "숭례문", "남대문시장", "동대문시장", "광장시장", "통인시장", "망원시장", "노량진", "가락시장",
-        "광화문", "세종로", "시청", "을지로", "명동", "남산", "남산타워", "DDP", "경복궁", "서촌", "북촌", "인사동", "익선동", "삼청동", "청계천", "덕수궁", "창경궁", "창덕궁", "운현궁", "종묘",
-        "서울역", "용산역", "청량리", "여의도", "샛강", "한강", "반포", "뚝섬", "성수", "서울숲", "잠실", "석촌", "올림픽", "하늘공원", "상암", "홍대", "신촌", "안산", "진관사", "한옥마을",
-        # 경기 남부/동남부 (분당 인접)
-        "성남", "분당", "판교", "율동", "남한산성", "용인", "민속촌", "에버랜드", "와우정사", "기흥", "수지", "광주", "화담숲", "수원", "행궁", "행리단", "화성", "제부도", "궁평항", "이천", "설봉", "도예촌", "여주", "신륵사", "프리미엄", "강천섬", "안성", "평택", "평택호", "오산",
-        # 경기 서부/서남부
-        "안양", "예술공원", "의왕", "왕송", "백운", "과천", "서울대공원", "군포", "반월", "안산", "대부도", "시흥", "갯골", "오이도", "물왕", "광명", "부천", "상동호수", "김포", "라베니체", "금빛수로",
-        # 경기 동북부/북부 힐링 명소
-        "가평", "아침고요", "자라섬", "수목원", "양평", "두물머리", "세미원", "용문사", "남양주", "물의정원", "다산", "하남", "미사", "구리", "포천", "산정호수", "아트밸리", "허브아일랜드", "파주", "마장호수", "출렁다리", "헤이리", "임진각", "의정부", "직동", "고양", "일산", "호수공원", "행주산성", "양주", "동두천", "소요산", "연천",
-        # 인천 전역 및 주요 명소
-        "인천", "송도", "센트럴파크", "소래포구", "월미도", "차이나타운", "영종도", "을왕리", "강화도", "부평", "계양", "미추홀", "연수", "남동", "서구", "중구", "동구"
-    ]
-    
-    is_recommend = destination in ["추천", "알아서 추천", "", "자동추천", "알아서"]
-    is_valid_dest = is_recommend or any(kw in destination for kw in valid_region_keywords)
-    
-    if not is_valid_dest:
-        return jsonify({
-            "success": False,
-            "message": f"⚠️ '{destination}'(은)는 서비스 지원 범위 이외의 지역입니다.\n\n어르신 분당 출발 당일치기 안심 귀가 범위인 [서울 주요 6개 구(종로·중구·용산·송파·마포·은평) 및 경기도/인천 18개 시·군] 내의 지역을 선택해 주세요!"
-        }), 400
-    
-    # 3. 일정 데이터 생성 (LLM or Mock)
+    # 3. 일정 데이터 생성 (LLM or Mock) - 전국 모든 지역 지원
     trip_output = generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, companion_count)
     
     # 생성된 최종 목적지 이름 파악
