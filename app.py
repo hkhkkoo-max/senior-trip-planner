@@ -153,17 +153,21 @@ def make_map_urls(place_name, region="", place_url="", x=None, y=None):
         
     encoded = quote(search_query)
     
-    # 1순위: 좌표(x, y)가 있으면 카카오맵 공식 정밀 길찾기 링크(to/장소명,lat,lng) 생성 (엉뚱한 타지역 연결 원천 차단)
-    if x and y:
-        route_url = f"https://map.kakao.com/link/to/{quote(clean_name)},{y},{x}"
-    elif place_url and str(place_url).startswith("http"):
-        route_url = place_url
+    # 사용자의 요청: 카카오맵 '길찾기' 탭 대신 '검색 / 장소 상세' 탭이 열리도록 변경
+    # 1순위: place_url이 있으면 공식 카카오맵 장소 상세/검색 페이지
+    # 2순위: 좌표(x, y)가 있으면 카카오맵 지도 검색 마커 페이지
+    # 3순위: 카카오맵 키워드 검색 페이지
+    if place_url and str(place_url).startswith("http"):
+        kakao_main_url = place_url
+    elif x and y:
+        kakao_main_url = f"https://map.kakao.com/link/map/{quote(clean_name)},{y},{x}"
     else:
-        route_url = f"https://map.kakao.com/link/search/{encoded}"
+        kakao_main_url = f"https://map.kakao.com/link/search/{encoded}"
         
     return {
-        "kakao": place_url if place_url and str(place_url).startswith("http") else f"https://map.kakao.com/link/search/{encoded}",
-        "kakao_route": route_url,
+        "kakao": kakao_main_url,
+        "kakao_route": kakao_main_url,
+        "kakao_search": f"https://map.kakao.com/link/search/{encoded}",
         "naver": f"https://map.naver.com/v5/search/{encoded}"
     }
 

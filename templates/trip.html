@@ -76,7 +76,7 @@
                             {% if item.mapUrls and not is_move and not is_duplicate and not is_lunch and not is_cafe %}
                             <div class="map-btn-group no-print">
                                 <a href="{{ item.mapUrls.kakao_route if item.mapUrls.kakao_route else item.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
-                                    🗺️ 카카오맵으로 [ {{ item.title }} ] 길찾기
+                                    🗺️ 카카오맵으로 [ {{ item.title }} ] 위치/정보
                                 </a>
                             </div>
                             {% endif %}
@@ -104,7 +104,7 @@
                             {% if parking.mapUrls %}
                             <div class="map-btn-group no-print mt-2">
                                 <a href="{{ parking.mapUrls.kakao_route if parking.mapUrls.kakao_route else parking.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
-                                    🗺️ 카카오맵으로 [ {{ parking.name }} ] 길찾기
+                                    🗺️ 카카오맵으로 [ {{ parking.name }} ] 위치/정보
                                 </a>
                             </div>
                             {% endif %}
@@ -122,7 +122,7 @@
                             {% if ev.mapUrls %}
                             <div class="map-btn-group no-print mt-2">
                                 <a href="{{ ev.mapUrls.kakao_route if ev.mapUrls.kakao_route else ev.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
-                                    ⚡ 카카오맵으로 [ {{ ev.name }} ] 위치보기
+                                    ⚡ 카카오맵으로 [ {{ ev.name }} ] 위치/정보
                                 </a>
                             </div>
                             {% endif %}
@@ -135,7 +135,7 @@
                     {% if (item.time == "12:30" or "점심" in item.title) and trip.output.restaurantCandidates %}
                     <div class="restaurant-inline-box">
                         <h4 class="rest-box-title">🍱 [{{ trip.input.cuisineType if trip.input.cuisineType else '한식' }}] 추천 식당 3선: {{ trip.output.restaurantCandidates[0].name }} 외 2곳 (1인 예산 약 {% if trip.input.lunchBudgetPerPerson <= 10000 %}1만원대{% elif trip.input.lunchBudgetPerPerson == 20000 %}2만원대{% else %}3만원대{% endif %})</h4>
-                        <p class="rest-box-sub">아래 3가지 식당 중 취향에 맞는 곳으로 방문하세요. (전화 연결 및 카카오맵 길찾기)</p>
+                        <p class="rest-box-sub">아래 3가지 식당 중 취향에 맞는 곳으로 방문하세요. (전화 연결 및 카카오맵 검색/정보)</p>
                         
                         <div class="restaurant-grid">
                             {% for rest in trip.output.restaurantCandidates %}
@@ -153,7 +153,7 @@
                                     </div>
                                 </div>
 
-                                <!-- 2번째 줄: 지자체 인증 (좌) & 카카오맵 길찾기 (우) 나란히 배치 -->
+                                <!-- 2번째 줄: 지자체 인증 (좌) & 카카오맵 검색 (우) 나란히 배치 -->
                                 <div class="rest-sub-row no-print" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
                                     {% if rest.certBadge %}
                                     <div class="cert-badge" style="margin: 0;">
@@ -166,7 +166,7 @@
                                     {% if rest.mapUrls %}
                                     <div class="map-btn-group no-print" style="margin: 0;">
                                         <a href="{{ rest.mapUrls.kakao_route if rest.mapUrls.kakao_route else rest.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao" style="padding: 6px 14px; font-size: 14px; font-weight: 800; border-radius: 20px; text-decoration: none; display: inline-flex; align-items: center;">
-                                            🗺️ 카카오맵 길찾기
+                                            🗺️ 카카오맵 검색
                                         </a>
                                     </div>
                                     {% endif %}
@@ -204,7 +204,7 @@
                                     </div>
                                 </div>
 
-                                <!-- 2번째 줄: 지자체/관광 인증 (좌) & 카카오맵 길찾기 (우) 나란히 배치 -->
+                                <!-- 2번째 줄: 지자체/관광 인증 (좌) & 카카오맵 검색 (우) 나란히 배치 -->
                                 <div class="cafe-sub-row no-print" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
                                     {% if cafe.certBadge %}
                                     <div class="cert-badge" style="margin: 0;">
@@ -217,7 +217,7 @@
                                     {% if cafe.mapUrls %}
                                     <div class="map-btn-group no-print" style="margin: 0;">
                                         <a href="{{ cafe.mapUrls.kakao_route if cafe.mapUrls.kakao_route else cafe.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao" style="padding: 6px 14px; font-size: 14px; font-weight: 800; border-radius: 20px; text-decoration: none; display: inline-flex; align-items: center;">
-                                            🗺️ 카카오맵 길찾기
+                                            🗺️ 카카오맵 검색
                                         </a>
                                     </div>
                                     {% endif %}
