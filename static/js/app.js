@@ -268,3 +268,40 @@ async function updateMonthlyDatabase() {
         alert("⚠️ 업데이트 통신 중 오류가 발생했습니다.");
     }
 }
+
+// --- PWA 홈 화면 추가 (스마트폰 앱 설치 유도) ---
+let deferredPrompt = null;
+const pwaBanner = document.getElementById("pwaInstallBanner");
+const btnPwaInstall = document.getElementById("btnPwaInstall");
+
+window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (pwaBanner) {
+        pwaBanner.style.display = "block";
+    }
+});
+
+if (btnPwaInstall) {
+    btnPwaInstall.addEventListener("click", async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log("[PWA] Install prompt outcome:", outcome);
+            deferredPrompt = null;
+            if (pwaBanner) {
+                pwaBanner.style.display = "none";
+            }
+        } else {
+            // iOS Safari 또는 기타 브라우저 안내
+            alert("📱 스마트폰 브라우저 메뉴(또는 하단 공유 버튼)에서\n'홈 화면에 추가'를 누르시면 진짜 앱으로 설치됩니다!");
+        }
+    });
+}
+
+window.addEventListener("appinstalled", () => {
+    console.log("[PWA] App successfully installed");
+    if (pwaBanner) {
+        pwaBanner.style.display = "none";
+    }
+});
