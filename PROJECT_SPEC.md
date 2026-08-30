@@ -38,7 +38,7 @@
 | 필드명 | 타입 | 설명 |
 |---|---|---|
 | destination | string / "추천" | 여행지 직접 지정 또는 추천 요청 |
-| lunchBudgetPerPerson | enum | `20000` / `30000` / `50000` (원, 1인당 점심 1회 기준) |
+| lunchBudgetPerPerson | enum | `15000` / `35000` / `60000` / `100000` (원, 1인당 점심 1회 기준: 1~2만원대, 3~4만원대, 5~7만원대, 10만원대+ 럭셔리) |
 | interests | multi-select | 자연/둘레길, 사찰, 온천, 맛집, 전통시장, 문화유적 등 |
 | companionCount | integer | 동행 인원 수 (관계 구분 없음, 본인 포함 총 인원) |
 | transport | fixed value | "전기차 자가운전" 고정 (선택 UI 불필요, 명시만) |

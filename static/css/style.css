@@ -486,43 +486,47 @@ body {
     100% { transform: rotate(360deg); }
 }
 
-/* 결과 페이지 - 모던 대시보드 카드 */
+/* 결과 페이지 - 여행 동선 로드맵 요약 카드 */
 .overview-box {
-    background: linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%);
-    border: 1px solid #BFDBFE;
+    background: linear-gradient(135deg, #F0FDF4 0%, #EFF6FF 100%);
+    border: 2px solid #BBF7D0;
     border-radius: var(--radius-md);
-    padding: 24px;
-    margin-bottom: 28px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.08);
 }
 
 .overview-box h2 {
-    font-size: 20px;
+    font-size: 19px;
     font-weight: 800;
-    color: var(--primary-dark);
-    margin-bottom: 8px;
+    color: #15803D;
+    margin-bottom: 10px;
 }
 
 .overview-text {
-    font-size: 20px;
+    font-size: 16.5px;
     font-weight: 700;
-    color: var(--slate-dark);
-    margin-bottom: 16px;
+    color: #334155;
+    margin-bottom: 12px;
+    line-height: 1.55;
 }
 
-.input-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.tag {
+.roadmap-flow-box {
     background: #FFFFFF;
-    border: 1px solid #CBD5E1;
-    color: var(--slate-body);
-    font-size: 14px;
-    font-weight: 700;
-    padding: 5px 14px;
-    border-radius: 20px;
+    border: 1.5px solid #86EFAC;
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.roadmap-flow-text {
+    font-size: 16px;
+    font-weight: 800;
+    color: #0F766E;
+    margin: 0;
+    line-height: 1.6;
+    word-break: keep-all;
+    letter-spacing: -0.01em;
 }
 
 .section-block {
@@ -544,26 +548,67 @@ body {
     margin-bottom: 18px;
 }
 
-/* 타임라인 점심 일정 바로 아래 인라인 식당 박스 */
+/* 타임라인 점심 일정 바로 아래 인라인 식당 박스 (컴팩트 선택 구간) */
 .restaurant-inline-box {
-    background: #FFFBEB;
-    border: 2px solid #FDE68A;
+    background: #FFFDF5;
+    border: 2px dashed #FCD34D;
     border-radius: var(--radius-md);
-    padding: 24px 20px;
+    padding: 16px 14px;
     margin: 8px 0 12px 0;
 }
 
-.rest-box-title {
-    font-size: 20px;
-    font-weight: 800;
-    color: #92400E;
-    margin-bottom: 4px;
+.selection-box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(252, 211, 77, 0.4);
 }
 
-.rest-box-sub {
-    font-size: 15px;
-    color: #B45309;
-    margin-bottom: 16px;
+.rest-box-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: #92400E;
+    margin: 0;
+}
+
+.selection-tag {
+    font-size: 13.5px;
+    font-weight: 900;
+    padding: 5px 12px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    letter-spacing: -0.02em;
+}
+
+.highlight-badge {
+    background: linear-gradient(135deg, #EA580C 0%, #F59E0B 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    box-shadow: 0 3px 10px rgba(234, 88, 12, 0.35);
+    animation: pulseBadge 2.5s infinite ease-in-out;
+}
+
+.highlight-badge-cafe {
+    background: linear-gradient(135deg, #9333EA 0%, #D946EF 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    box-shadow: 0 3px 10px rgba(147, 51, 234, 0.35);
+    animation: pulseBadge 2.5s infinite ease-in-out;
+}
+
+@keyframes pulseBadge {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+}
+
+.cafe-tag {
+    background: #FDF4FF;
+    color: #86198F;
+    border-color: #F5D0FE;
 }
 
 /* 타임라인 도착 항목 바로 아래 주차장 & EV 인라인 박스 */
@@ -615,63 +660,91 @@ body {
 }
 
 
-/* 타임라인 카페 일정 바로 아래 인라인 카페 박스 */
+/* 타임라인 카페 일정 바로 아래 인라인 카페 박스 (컴팩트 선택 구간) */
 .cafe-inline-box {
-    background: #FDF4FF;
-    border: 2px solid #F5D0FE;
+    background: #FFFAFF;
+    border: 2px dashed #F5D0FE;
     border-radius: var(--radius-md);
-    padding: 24px 20px;
+    padding: 16px 14px;
     margin: 8px 0 12px 0;
 }
 
 .cafe-box-title {
-    font-size: 20px;
+    font-size: 17px;
     font-weight: 800;
     color: #86198F;
-    margin-bottom: 4px;
-}
-
-.cafe-box-sub {
-    font-size: 15px;
-    color: #A21CAF;
-    margin-bottom: 16px;
+    margin: 0;
 }
 
 /* 식당 & 카페 후보 카드 그리드 */
 .restaurant-grid, .cafe-grid {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
+}
+
+.card-top-badge {
+    margin-bottom: 6px;
+}
+
+.choice-badge {
+    font-size: 13px;
+    font-weight: 800;
+    background: #D97706;
+    color: #FFFFFF;
+    padding: 3px 10px;
+    border-radius: 6px;
+    display: inline-block;
+    letter-spacing: -0.01em;
+}
+
+.cafe-choice {
+    background: #A21CAF;
+}
+
+.compact-card {
+    padding: 14px 14px !important;
+    border-radius: 12px !important;
+}
+
+.compact-card h4 {
+    font-size: 17px !important;
+}
+
+.compact-card p {
+    font-size: 14px !important;
+    margin-bottom: 3px !important;
+    line-height: 1.45 !important;
 }
 
 .restaurant-card {
     background: #FFFFFF;
     border: 1px solid #FCD34D;
     border-radius: var(--radius-md);
-    padding: 18px;
-    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.08);
+    padding: 14px;
+    box-shadow: 0 1px 4px rgba(245, 158, 11, 0.06);
     transition: all 0.2s ease;
 }
 
 .restaurant-card:hover {
     border-color: #F59E0B;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+    box-shadow: 0 4px 10px rgba(245, 158, 11, 0.12);
 }
 
 .cafe-card {
     background: #FFFFFF;
     border: 1px solid #F0ABFC;
     border-radius: var(--radius-md);
-    padding: 18px;
-    box-shadow: 0 2px 8px rgba(217, 70, 239, 0.08);
+    padding: 14px;
+    box-shadow: 0 1px 4px rgba(217, 70, 239, 0.06);
     transition: all 0.2s ease;
 }
 
 .cafe-card:hover {
     border-color: #D946EF;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(217, 70, 239, 0.15);
+    box-shadow: 0 4px 10px rgba(217, 70, 239, 0.12);
 }
 
 .rest-header, .cafe-header {

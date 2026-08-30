@@ -171,7 +171,67 @@ def make_map_urls(place_name, region="", place_url="", x=None, y=None):
         "naver": f"https://map.naver.com/v5/search/{encoded}"
     }
 
-def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
+def generate_bracket_roadmap(origin_district, timeline_items):
+    """
+    타임라인 일정 항목들의 대괄호 [ ... ] 내용을 순서대로 추출하여 동선 로드맵 생성
+    (예: 차량이동 ➔ 자연/둘레길산책 ➔ 차량이동 ➔ 전통시장탐방 ➔ 점심식사 ➔ 디저트&뷰카페휴식 ➔ 여유산책 ➔ 중원구 귀가 이동)
+    """
+    origin_name = origin_district if origin_district else "분당구"
+    tags = []
+    
+    for item in timeline_items:
+        title = item.get("title", "")
+        # 대괄호 [ ... ] 안의 텍스트 추출
+        match = re.search(r'\[(.*?)\]', title)
+        if match:
+            raw_tag = match.group(1).strip()
+            # 정규화
+            if "귀가" in raw_tag:
+                tag = f"{origin_name} 귀가 이동"
+            elif "차량" in raw_tag and "이동" in raw_tag:
+                tag = "차량이동"
+            elif "도보" in raw_tag and "이동" in raw_tag:
+                tag = "도보이동"
+            elif "산책" in raw_tag and ("여유" in raw_tag or "주변" in raw_tag):
+                tag = "여유산책"
+            elif "자연" in raw_tag or "둘레길" in raw_tag:
+                tag = "자연/둘레길산책"
+            elif "전통시장" in raw_tag:
+                tag = "전통시장탐방"
+            elif "사찰" in raw_tag or "문화유적" in raw_tag:
+                tag = "사찰/유적지탐방"
+            elif "온천" in raw_tag or "족욕" in raw_tag:
+                tag = "온천/족욕힐링"
+            elif "박물관" in raw_tag or "전시" in raw_tag:
+                tag = "박물관/전시관람"
+            elif "점심" in raw_tag:
+                tag = "점심식사"
+            elif "디저트" in raw_tag or "카페" in raw_tag:
+                tag = "디저트&뷰카페휴식"
+            else:
+                tag = raw_tag
+            tags.append(tag)
+        else:
+            if "출발" in title:
+                tags.append("차량이동")
+            elif "점심" in title:
+                tags.append("점심식사")
+            elif "카페" in title or "디저트" in title:
+                tags.append("디저트&뷰카페휴식")
+            elif "귀가" in title:
+                tags.append(f"{origin_name} 귀가 이동")
+                
+    # 연속된 동일 태그 중복 제거
+    clean_tags = []
+    for t in tags:
+        if not clean_tags or clean_tags[-1] != t:
+            clean_tags.append(t)
+            
+    return " ➔ ".join(clean_tags)
+
+
+
+def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500, lunch_budget=35000):
     """
     [Universal Dynamic RAG Retriever] 
     카카오 로컬 REST API를 활용하여 대한민국 모든 목적지 주변의 100% 실존 식당, 카페, 주차장 및 지역 태그를 실시간 자동 수집
@@ -251,32 +311,58 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
     restaurants = []
     try:
         food_query = cuisine_type if cuisine_type else "음식점"
-        res = requests.get(
-            "https://dapi.kakao.com/v2/local/search/keyword.json",
-            headers=headers,
-            params={
-                "query": food_query,
-                "category_group_code": "FD6",
-                "x": center_x,
-                "y": center_y,
-                "radius": radius,
-                "size": 8,
-                "sort": "accuracy"
-            },
-            timeout=3
-        )
-        if res.status_code == 200:
-            for doc in res.json().get("documents", []):
-                restaurants.append({
-                    "name": doc.get("place_name"),
-                    "phone": doc.get("phone", ""),
-                    "category": doc.get("category_name", ""),
-                    "distance": f"{doc.get('distance')}m" if doc.get('distance') else "도보 3~5분",
-                    "address": doc.get("road_address_name") or doc.get("address_name", ""),
-                    "place_url": doc.get("place_url", ""),
-                    "x": doc.get("x"),
-                    "y": doc.get("y")
-                })
+        queries_to_try = [food_query]
+        
+        # 고예산(4만원 이상 ~ 10만원대 럭셔리) 시 럭셔리/프리미엄 키워드 다중 보강 검색
+        if lunch_budget >= 80000:
+            if "한식" in cuisine_type:
+                queries_to_try = [f"{region_tag} 한우", f"{region_tag} 고급한정식", f"{region_tag} 룸식당 한정식", food_query]
+            elif "일식" in cuisine_type:
+                queries_to_try = [f"{region_tag} 오마카세", f"{region_tag} 일식코스", f"{region_tag} 사시미", food_query]
+            elif "양식" in cuisine_type:
+                queries_to_try = [f"{region_tag} 파인다이닝", f"{region_tag} 스테이크", food_query]
+            elif "중식" in cuisine_type:
+                queries_to_try = [f"{region_tag} 고급중식당", f"{region_tag} 중식코스", food_query]
+        elif lunch_budget >= 40000:
+            if "한식" in cuisine_type:
+                queries_to_try = [f"{region_tag} 한정식", f"{region_tag} 숯불갈비", f"{region_tag} 보양식", food_query]
+            elif "일식" in cuisine_type:
+                queries_to_try = [f"{region_tag} 일식코스", f"{region_tag} 초밥", food_query]
+            elif "양식" in cuisine_type:
+                queries_to_try = [f"{region_tag} 스테이크", f"{region_tag} 레스토랑", food_query]
+            elif "중식" in cuisine_type:
+                queries_to_try = [f"{region_tag} 중화요리", f"{region_tag} 중식당", food_query]
+
+        for q_item in queries_to_try:
+            if len(restaurants) >= 8:
+                break
+            res = requests.get(
+                "https://dapi.kakao.com/v2/local/search/keyword.json",
+                headers=headers,
+                params={
+                    "query": q_item,
+                    "category_group_code": "FD6",
+                    "x": center_x,
+                    "y": center_y,
+                    "radius": radius,
+                    "size": 8,
+                    "sort": "accuracy"
+                },
+                timeout=3
+            )
+            if res.status_code == 200:
+                for doc in res.json().get("documents", []):
+                    if not any(r["name"] == doc.get("place_name") for r in restaurants):
+                        restaurants.append({
+                            "name": doc.get("place_name"),
+                            "phone": doc.get("phone", ""),
+                            "category": doc.get("category_name", ""),
+                            "distance": f"{doc.get('distance')}m" if doc.get('distance') else "도보 3~5분",
+                            "address": doc.get("road_address_name") or doc.get("address_name", ""),
+                            "place_url": doc.get("place_url", ""),
+                            "x": doc.get("x"),
+                            "y": doc.get("y")
+                        })
                 
         # 만약 반경 내 카테고리 검색 결과가 3개 미만이면 키워드 직접 검색으로 보강
         if len(restaurants) < 3:
@@ -425,28 +511,53 @@ def fetch_kakao_nearby_places(target_place, cuisine_type="한식", radius=3500):
         "parking_lots": parking_lots
     }
 
-def fetch_kakao_driving_info(destination_place, origin_place="성남시 분당구청"):
+DISTRICT_ORIGIN_MAP = {
+    "분당구": {"name": "성남시 분당구청", "coord": "127.1188,37.3827", "x": 127.1188, "y": 37.3827, "label": "성남시 분당구"},
+    "수정구": {"name": "성남시 수정구청", "coord": "127.1456,37.4504", "x": 127.1456, "y": 37.4504, "label": "성남시 수정구"},
+    "중원구": {"name": "성남시 중원구청", "coord": "127.1372,37.4306", "x": 127.1372, "y": 37.4306, "label": "성남시 중원구"}
+}
+
+def fetch_kakao_driving_info(destination_place, origin_district="분당구"):
     """
     카카오 모빌리티 길찾기 API (Kakao Mobility Directions API)를 호출하여
-    성남시 분당구청(출발지)에서 목적지까지의 실시간 자동차 주행 소요 시간(분), 편도 거리(km), 톨게이트 비용을 조회합니다.
+    성남시(분당구/수정구/중원구) 출발지에서 목적지까지의 실시간 자동차 주행 소요 시간(분), 편도 거리(km), 톨게이트 비용을 조회합니다.
+    (보행자 전용 구역 등 차량 진입 불가 장소 검색 시 공영주차장/대체 거점으로 자동 경로 보정 재시도)
     """
     kakao_key = os.getenv("KAKAO_REST_API_KEY")
+    origin_info = DISTRICT_ORIGIN_MAP.get(origin_district, DISTRICT_ORIGIN_MAP["분당구"])
+    orig_x, orig_y = origin_info["x"], origin_info["y"]
+    origin = origin_info["coord"]
+    origin_name = origin_info["name"]
+    origin_label = origin_info["label"]
+    
     if not kakao_key:
         return {
             "duration_min": 45,
             "distance_km": 30.0,
             "duration_str": "약 45분",
             "distance_str": "약 30km",
-            "toll": 0
+            "toll": 0,
+            "origin_name": origin_name,
+            "origin_label": origin_label
         }
     
     headers = {"Authorization": f"KakaoAK {kakao_key}"}
-    origin = "127.1189,37.3827"  # 성남시 분당구청 중심 좌표
-    
-    # 1. 목적지 키워드 검색으로 좌표(x, y) 획득
-    dest_x, dest_y = None, None
     clean_target = clean_place_name(destination_place) if "clean_place_name" in globals() else destination_place
-    search_queries = [destination_place, clean_target, destination_place.split()[0] if destination_place else ""]
+    
+    # 1. 목적지 키워드 다각화 검색 (차량 진입 가능한 주차장, 관공서, 역 등 포함)
+    search_queries = [
+        f"{clean_target} 공영주차장",
+        f"{clean_target} 주차장",
+        clean_target,
+        destination_place,
+        f"{clean_target} 시청",
+        f"{clean_target} 구청",
+        f"{clean_target}역"
+    ]
+    
+    coord_candidates = []
+    seen_coords = set()
+    first_found_coord = None
     
     for q in search_queries:
         if not q or len(q.strip()) < 2:
@@ -460,79 +571,123 @@ def fetch_kakao_driving_info(destination_place, origin_place="성남시 분당�
             )
             if s_res.status_code == 200:
                 docs = s_res.json().get("documents", [])
-                if docs:
-                    dest_x = docs[0]["x"]
-                    dest_y = docs[0]["y"]
-                    break
+                for doc in docs[:3]:
+                    cx, cy = doc.get("x"), doc.get("y")
+                    pname = doc.get("place_name", "")
+                    if cx and cy:
+                        coord_key = (round(float(cx), 4), round(float(cy), 4))
+                        if coord_key not in seen_coords:
+                            seen_coords.add(coord_key)
+                            coord_candidates.append((cx, cy, pname))
+                            if not first_found_coord:
+                                first_found_coord = (float(cx), float(cy))
         except Exception as e:
             print(f"[WARN] 카카오 장소 좌표 조회 예외 ({q}): {e}")
             
-    if not dest_x or not dest_y:
-        # 좌표 검색 실패 시 지역 기반 지능형 기본값
-        default_dur = 45
-        default_dist = 30.0
-        if any(k in destination_place for k in ["분당", "율동", "중앙공원", "판교", "성남"]):
-            default_dur, default_dist = 15, 6.0
-        elif any(k in destination_place for k in ["남한산성", "용인", "민속촌", "화담숲", "광주"]):
-            default_dur, default_dist = 35, 20.0
-        elif any(k in destination_place for k in ["수원", "과천", "의왕", "안양", "양평"]):
-            default_dur, default_dist = 45, 35.0
-        elif any(k in destination_place for k in ["가평", "포천", "파주", "연천", "동두천"]):
-            default_dur, default_dist = 85, 75.0
-        return {
-            "duration_min": default_dur,
-            "distance_km": default_dist,
-            "duration_str": f"약 {default_dur}분",
-            "distance_str": f"약 {default_dist}km",
-            "toll": 0
-        }
-        
-    # 2. 카카오 모빌리티 실시간 경로 API 호출
-    try:
-        n_res = requests.get(
-            "https://apis-navi.kakaomobility.com/v1/directions",
-            headers=headers,
-            params={
-                "origin": origin,
-                "destination": f"{dest_x},{dest_y}",
-                "priority": "RECOMMEND"
-            },
-            timeout=4
-        )
-        if n_res.status_code == 200:
-            routes = n_res.json().get("routes", [])
-            if routes:
-                summary = routes[0].get("summary", {})
-                dur_sec = summary.get("duration", 2700)
-                dist_m = summary.get("distance", 30000)
-                toll = summary.get("fare", {}).get("toll", 0)
-                
-                dur_min = max(10, round(dur_sec / 60))
-                dist_km = round(dist_m / 1000, 1)
-                
-                if dur_min >= 60:
-                    h = dur_min // 60
-                    m = dur_min % 60
-                    dur_str = f"약 {h}시간 {m}분" if m > 0 else f"약 {h}시간"
-                else:
-                    dur_str = f"약 {dur_min}분"
+    # 2. 후보 좌표별 카카오 모빌리티 실시간 경로 API 호출 (정상 경로 탐색 시 즉시 반환)
+    for cx, cy, pname in coord_candidates:
+        try:
+            n_res = requests.get(
+                "https://apis-navi.kakaomobility.com/v1/directions",
+                headers=headers,
+                params={
+                    "origin": origin,
+                    "destination": f"{cx},{cy}",
+                    "priority": "RECOMMEND"
+                },
+                timeout=4
+            )
+            if n_res.status_code == 200:
+                routes = n_res.json().get("routes", [])
+                if routes and routes[0].get("result_code") == 0 and routes[0].get("summary"):
+                    summary = routes[0]["summary"]
+                    dur_sec = summary.get("duration", 2700)
+                    dist_m = summary.get("distance", 30000)
+                    toll = summary.get("fare", {}).get("toll", 0)
                     
-                return {
-                    "duration_min": dur_min,
-                    "distance_km": dist_km,
-                    "duration_str": dur_str,
-                    "distance_str": f"약 {dist_km}km",
-                    "toll": toll
-                }
-    except Exception as e:
-        print(f"[WARN] 카카오 모빌리티 길찾기 API 호출 예외: {e}")
-        
+                    dur_min = max(10, round(dur_sec / 60))
+                    dist_km = round(dist_m / 1000, 1)
+                    
+                    if dur_min >= 60:
+                        h = dur_min // 60
+                        m = dur_min % 60
+                        dur_str = f"약 {h}시간 {m}분" if m > 0 else f"약 {h}시간"
+                    else:
+                        dur_str = f"약 {dur_min}분"
+                        
+                    return {
+                        "duration_min": dur_min,
+                        "distance_km": dist_km,
+                        "duration_str": dur_str,
+                        "distance_str": f"약 {dist_km}km",
+                        "toll": toll,
+                        "origin_name": origin_name,
+                        "origin_label": origin_label
+                    }
+        except Exception as e:
+            print(f"[WARN] 카카오 모빌리티 길찾기 API 호출 예외 ({pname}): {e}")
+            
+    # 3. 만약 모든 실시간 API 호출이 실패했으나 좌표는 존재하는 경우 -> 하버사인 직선 거리 기반 정밀 지능형 추정
+    if first_found_coord:
+        try:
+            import math
+            fx, fy = first_found_coord
+            dlat = math.radians(fy - orig_y)
+            dlon = math.radians(fx - orig_x)
+            a = math.sin(dlat / 2)**2 + math.cos(math.radians(orig_y)) * math.cos(math.radians(fy)) * math.sin(dlon / 2)**2
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            straight_dist = 6371 * c  # km
+            
+            # 실제 주행거리는 도로 굴곡율(약 1.35) 반영
+            est_drive_dist = round(straight_dist * 1.35, 1)
+            # 평균 시속 약 65km/h 기준 시간 산출 (도심 및 고속도로 혼합)
+            est_drive_min = max(15, round((est_drive_dist / 65.0) * 60))
+            
+            if est_drive_min >= 60:
+                h = est_drive_min // 60
+                m = est_drive_min % 60
+                dur_str = f"약 {h}시간 {m}분" if m > 0 else f"약 {h}시간"
+            else:
+                dur_str = f"약 {est_drive_min}분"
+                
+            return {
+                "duration_min": est_drive_min,
+                "distance_km": est_drive_dist,
+                "duration_str": dur_str,
+                "distance_str": f"약 {est_drive_dist}km",
+                "toll": 0,
+                "origin_name": origin_name,
+                "origin_label": origin_label
+            }
+        except Exception as e:
+            print(f"[WARN] 거리 계산 추정 예외: {e}")
+
+    # 4. 최종 Fallback (지역 키워드 기반)
+    default_dur = 45
+    default_dist = 30.0
+    if any(k in destination_place for k in ["분당", "율동", "중앙공원", "판교", "성남"]):
+        default_dur, default_dist = 15, 6.0
+    elif any(k in destination_place for k in ["남한산성", "용인", "민속촌", "화담숲", "광주"]):
+        default_dur, default_dist = 35, 20.0
+    elif any(k in destination_place for k in ["수원", "과천", "의왕", "안양", "양평"]):
+        default_dur, default_dist = 45, 35.0
+    elif any(k in destination_place for k in ["가평", "포천", "파주", "연천", "동두천"]):
+        default_dur, default_dist = 85, 75.0
+    elif any(k in destination_place for k in ["전주", "대전", "천안", "청주", "충주"]):
+        default_dur, default_dist = 160, 190.0
+    elif any(k in destination_place for k in ["강릉", "속초", "양양", "동해"]):
+        default_dur, default_dist = 150, 180.0
+    elif any(k in destination_place for k in ["부산", "경주", "대구", "울산", "포항", "여수", "순천", "목포"]):
+        default_dur, default_dist = 240, 320.0
+
     return {
-        "duration_min": 45,
-        "distance_km": 30.0,
-        "duration_str": "약 45분",
-        "distance_str": "약 30km",
-        "toll": 0
+        "duration_min": default_dur,
+        "distance_km": default_dist,
+        "duration_str": f"약 {default_dur//60}시간 {default_dur%60}분" if default_dur >= 60 else f"약 {default_dur}분",
+        "distance_str": f"약 {default_dist}km",
+        "toll": 0,
+        "origin_name": origin_name,
+        "origin_label": origin_label
     }
 
 def fetch_kakao_tourist_spots(destination_place):
@@ -820,8 +975,12 @@ RECOMMENDED_DESTINATIONS = [
 ]
 
 # --- Gemini API 호출 또는 Mock 일정 생성 도우미 ---
-def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, companion_count):
+def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, companion_count, origin_district="분당구"):
     """Gemini API를 호출하거나 입력받은 목적지에 맞춰 식당 3곳 및 카페 3곳 일정을 생성합니다."""
+
+    origin_info = DISTRICT_ORIGIN_MAP.get(origin_district, DISTRICT_ORIGIN_MAP["분당구"])
+    origin_label = origin_info["label"]
+    origin_name = origin_info["name"]
 
     if not destination or destination.strip() in ["추천", "알아서 추천", ""]:
         if "온천/족욕휴양" in interests:
@@ -862,10 +1021,10 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
 
     cuisine = cuisine_type.strip() if cuisine_type else "한식"
 
-    print(f"[INFO] 일정 생성 요청 - 목적지: '{target_place}', 음식종류: '{cuisine}', 예산: {lunch_budget}, 관심사: {interests}")
+    print(f"[INFO] 일정 생성 요청 - 출발지: '{origin_label}', 목적지: '{target_place}', 음식종류: '{cuisine}', 예산: {lunch_budget}, 관심사: {interests}")
 
     # 카카오 로컬 REST API 기반 실시간 RAG Context 수집
-    kakao_rag = fetch_kakao_nearby_places(target_place, cuisine)
+    kakao_rag = fetch_kakao_nearby_places(target_place, cuisine, lunch_budget=lunch_budget)
     rag_context_text = ""
     if kakao_rag and (kakao_rag.get("restaurants") or kakao_rag.get("cafes")):
         center_title = kakao_rag.get("center_place", target_place)
@@ -895,8 +1054,24 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             from google import genai
             client = genai.Client(api_key=GEMINI_API_KEY)
             
+            budget_guideline = ""
+            if lunch_budget >= 80000:
+                budget_guideline = f"""
+            5. **[1인 {lunch_budget:,}원대 최고급 럭셔리 다이닝 엄수]**:
+               - 사용자가 1인당 {lunch_budget:,}원대 최고급 럭셔리 식사를 요청하였습니다.
+               - 저가 대중식당 대신, 최고급 1++ 암소 한우 숯불구이, VIP 프라이빗 룸 한정식 코스, 일식 정통 오마카세/사시미 코스, 호텔급 파인다이닝 등 품격 있는 서비스와 전용 룸을 갖춘 최고급 명품 식당을 1순위로 추천하세요. (단, 휠체어/평지 이동 제약은 강제하지 않습니다.)
+               - 대표 메뉴명(`menu`)에 '1++ 한우 특선 코스 (1인 10만원대)', 'VIP 시그니처 정찬 코스' 등 최고급 메뉴명과 1인 단가를 정확히 기재하고, 특징(`features`)에 프라이빗 룸 구비 및 품격 있는 분위기를 기술하세요.
+                """
+            elif lunch_budget >= 40000:
+                budget_guideline = f"""
+            5. **[1인 {lunch_budget:,}원대 프리미엄 특선 다이닝 엄수]**:
+               - 사용자가 1인당 {lunch_budget:,}원대 프리미엄 특선 식사를 요청하였습니다.
+               - 고급 한정식 정찬 코스, 특선 숯불갈비, 민물장어/복어 보양식, 특선 활어회 등 정갈하고 품격 있는 식당과 대표 메뉴를 추천하세요.
+               - 대표 메뉴명(`menu`)에 '특선 정찬 코스 (1인 {lunch_budget:,}원대)' 등 가격대를 표기하세요.
+                """
+
             prompt = f"""
-            당신은 성남시 분당구 거주 70대 이상 어르신을 위한 당일치기 여행 전문 가이드입니다.
+            당신은 {origin_label} 거주 70대 이상 어르신을 위한 당일치기 여행 전문 가이드입니다.
             사용자가 지정한 **목적지 [{target_place}]**, **음식 종류 [{cuisine}]**, 그리고 **관심사 [{', '.join(interests)}]**를 우선 고려하되, 인근 지리적 여건에 맞추어 해당 지자체(시/군/구) 문화관광과 공식 추천 명소 및 지자체 지정 '으뜸맛집', '모범음식점', '향토음식점' 인증을 우선 고려하여 카카오맵에서 100% 정상 검색되는 실제 식당 3곳, 실제 디저트 카페 3곳, 주차장 일정을 반환하세요.
             {rag_context_text}
             [4대 핵심 필수 엄수 제약 규칙]
@@ -907,19 +1082,20 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             4. **[성격이 다른 일정의 명확한 독립 분리 원칙]**: '사찰/문화재 탐방'과 '전통시장 장구경'처럼 성격이 다른 별개의 활동을 '사찰 탐방 및 장구경'과 같이 하나의 항목으로 뭉뚱그려 혼합 표시하지 말고, 각각 독립된 세부 일정 항목으로 깔끔히 분리하여 제시하세요.
 
             [사용자 입력]
-            - 출발지: 성남시 분당구
+            - 출발지: {origin_label}
             - 목적지: {target_place} (반드시 이 목적지 인근 장소로만 생성해야 함!)
             - 선택한 음식 종류: {cuisine}
             - 1인당 점심 예산: {lunch_budget:,}원
             - 관심사: {', '.join(interests)}
             - 동행 인원: {companion_count}명 (본인 포함)
-            - 이동수단: 전기차 자가운전 고정 (귀가 시간: 오후 5시 30분(17:30) 이전에 분당 안심 도착하는 여유로운 일정)
+            - 이동수단: 전기차 자가운전 고정 (귀가 시간: 오후 5시 30분(17:30) 이전에 {origin_district} 안심 도착하는 여유로운 일정)
 
             [핵심 제약 규칙 - 엄수]
             1. 점심 식당 3곳(`restaurantCandidates`)은 반드시 **[{target_place}] 인근**의 [{cuisine}] 관련 실제 카카오맵 검색 가능한 정확한 상호명 3곳과 실제 매장 전화번호, 지자체 인증 내역(`certBadge`, 예: "🏛️ 경기도 으뜸맛집 / 지자체 지정 향토업소")을 반환하세요.
             2. 디저트/뷰 카페 3곳(`cafeCandidates`) 역시 **[{target_place}] 인근**의 실제로 검색 가능한 순수 상호명 3곳과 실제 매장 전화번호, 지자체/관광 우수 인증 내역(`certBadge`)을 반환하세요. 따옴표나 미사여구를 붙이지 마세요.
             3. [{target_place}]의 메인 공영주차장 이름, 주차 요금(전기차 50% 할인), 주차 후 식당/카페까지의 도보 경로(시간/거리)를 명시하세요.
             4. 마크다운 코드블록 없이 순수 JSON만 반환하세요.
+            {budget_guideline}
 
             [반환할 JSON 구조]
             {{
@@ -974,10 +1150,10 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
               "timeline": [
                 {{
                   "time": "09:00", 
-                  "title": "분당 출발", 
+                  "title": "{origin_district} 출발", 
                   "description": "전기차 점검 후 목적지로 출발", 
                   "walkingInfo": "차량 이동",
-                  "placeKeyword": "성남시 분당구청",
+                  "placeKeyword": "{origin_name}",
                   "isVerificationNeeded": false
                 }},
                 {{
@@ -995,44 +1171,87 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
                   "walkingInfo": "주차장에서 도보 3분",
                   "placeKeyword": "식당1 이름",
                   "isVerificationNeeded": true, 
-                  "note": "방문 전 미리 전화로 브레이크 타임 및 예약 확인 권장"
+                  "restaurantOptions": [
+                    {{
+                      "name": "추천 식당1 상호명",
+                      "phone": "031-XXX-XXXX",
+                      "certBadge": "🏛️ 지자체 으뜸맛집",
+                      "menu": "대표 메뉴명 (1인 {lunch_budget:,}원대)",
+                      "features": "휠체어 평지 진입, 넓은 주차",
+                      "walkingInfo": "주차장 도보 3분 (180m)"
+                    }},
+                    {{
+                      "name": "추천 식당2 상호명",
+                      "phone": "032-XXX-XXXX",
+                      "menu": "대표 메뉴명",
+                      "features": "정갈한 반찬, 어르신 선호",
+                      "walkingInfo": "주차장 도보 4분 (220m)"
+                    }},
+                    {{
+                      "name": "추천 식당3 상호명",
+                      "phone": "032-XXX-XXXX",
+                      "menu": "대표 메뉴명",
+                      "features": "계단 없음, 쾌적한 실내",
+                      "walkingInfo": "주차장 도보 2분 (120m)"
+                    }}
+                  ]
                 }},
                 {{
-                  "time": "14:30", 
-                  "title": "디저트 & 카페 (추천 카페 3곳 중 선택)", 
-                  "description": "아래 [추천 카페 3선] 중 어르신들이 쉬기 가장 좋은 카페로 이동", 
-                  "walkingInfo": "식당에서 카페까지 도보 2~3분 (약 150m)",
+                  "time": "13:40", 
+                  "title": "디저트 & 차 한 잔 ({cuisine} 식사 후 추천 카페 3선)", 
+                  "description": "점심 식사 후 향긋한 전통차나 커피 한 잔과 함께 담소를 나누는 힐링 시간", 
+                  "walkingInfo": "식당에서 도보 3분 (150m)",
                   "placeKeyword": "카페1 이름",
-                  "isVerificationNeeded": true, 
-                  "note": "좌석 및 휴무일 확인 필요"
+                  "isVerificationNeeded": true,
+                  "cafeOptions": [
+                    {{
+                      "name": "추천 카페1 상호명",
+                      "phone": "032-XXX-XXXX",
+                      "dessert": "수제 대추차 & 전통 다과",
+                      "features": "어르신 편안한 좌석, 평지 진입",
+                      "walkingInfo": "식당 도보 3분 (150m)"
+                    }},
+                    {{
+                      "name": "추천 카페2 상호명",
+                      "phone": "032-XXX-XXXX",
+                      "dessert": "쌀 베이커리 & 아메리카노",
+                      "features": "정원이 아름다운 뷰 카페",
+                      "walkingInfo": "식당 도보 2분 (100m)"
+                    }},
+                    {{
+                      "name": "추천 카페3 상호명",
+                      "phone": "032-XXX-XXXX",
+                      "dessert": "수제 차 & 팥빙수",
+                      "features": "1층 위치, 넓은 테이블",
+                      "walkingInfo": "식당 도보 4분 (200m)"
+                    }}
+                  ]
+                }},
+                {{
+                  "time": "15:00", 
+                  "title": "오후 여유 탐방 ({target_place} 인근)", 
+                  "description": "오후 가벼운 산책 또는 전통시장/박물관 관람", 
+                  "walkingInfo": "완만한 평지 이동",
+                  "placeKeyword": "{target_place}",
+                  "isVerificationNeeded": false
                 }},
                 {{
                   "time": "16:30", 
-                  "title": "분당 귀가", 
-                  "description": "안전 운전으로 귀가", 
+                  "title": "{origin_district} 귀가", 
+                  "description": "{origin_label} 안전 귀가", 
                   "walkingInfo": "차량 이동",
-                  "placeKeyword": "",
+                  "placeKeyword": "{origin_name}",
                   "isVerificationNeeded": false
                 }}
               ],
-              "estimatedCost": {{
-                "lunch": {lunch_budget * companion_count},
-                "admission": 10000,
-                "extra": 10000,
-                "total": {lunch_budget * companion_count + 20000},
-                "details": [
-                  {{"item": "점심 식사 ({cuisine} {companion_count}명)", "cost": {lunch_budget * companion_count}}},
-                  {{"item": "입장료/주차비 (예상)", "cost": 10000}},
-                  {{"item": "카페 음료/디저트", "cost": 10000}}
-                ]
-              }},
               "routePlan": {{
-                "totalDistance": "약 45km",
-                "estimatedDriveTime": "약 50분",
+                "totalDistance": "편도 약 35km (왕복 약 70km)",
+                "estimatedDriveTime": "편도 약 45분",
+                "tollFee": "0원 (무료 도로 우선)",
                 "parkingLot": {{
-                  "name": "{target_place} 주차장",
-                  "feeInfo": "평일 3,000원 / 주말 5,000원 (전기차 50% 감면 혜택)",
-                  "convenience": "평지 주차 공간 넓음, 어르신 걷기 수월함",
+                  "name": "{target_place} 공영주차장",
+                  "location": "{target_place} 정문 도보 3분",
+                  "feeInfo": "1시간 2,000원 (전기차 50% 감면 1,000원)",
                   "placeKeyword": "{target_place} 주차장"
                 }},
                 "evChargingStation": {{
@@ -1120,10 +1339,14 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
                         break
 
             # 실시간 카카오 모빌리티 길찾기 정보 주입
-            driving_info = fetch_kakao_driving_info(target_place)
+            driving_info = fetch_kakao_driving_info(target_place, origin_district=origin_district)
             if driving_info and "routePlan" in result:
                 result["routePlan"]["totalDistance"] = f"편도 {driving_info['distance_str']} (왕복 약 {round(driving_info['distance_km']*2, 1)}km)"
                 result["routePlan"]["estimatedDriveTime"] = f"편도 {driving_info['duration_str']} (실시간 카카오내비 반영)"
+
+            # 여행 한 줄 요약 및 대괄호 [ ... ] 기반 동선 로드맵 주입
+            result["overview"] = f"{origin_label} 출발 기준, [{clean_place_name(target_place)}](으)로 떠나는 여유로운 당일치기 힐링 여행입니다."
+            result["roadmap"] = generate_bracket_roadmap(origin_district, result.get("timeline", []))
 
             # 미반영 관심사 사유 자동 안내 주입
             note = check_unmatched_interests(interests, target_place, result)
@@ -1173,9 +1396,9 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
             {
                 "name": r["name"],
                 "phone": r.get("phone", ""),
-                "menu": f"[{region_tag}] {cuisine} 추천 정식 (1인 {lunch_budget:,}원대)",
+                "menu": f"[{region_tag}] {cuisine} {'최고급 VIP 특선 코스 / 1++ 암소 한우' if lunch_budget >= 80000 else ('프리미엄 특선 정찬' if lunch_budget >= 40000 else '추천 정식')} (1인 {lunch_budget:,}원대)",
                 "walkingInfo": f"주차장 {r.get('distance', '도보 3분')}",
-                "features": f"어르신 속 편한 정갈한 {r.get('category', cuisine)} 상차림 ({r.get('address', '')})",
+                "features": f"{'프라이빗 룸 구비 및 품격 있는 VIP 서비스' if lunch_budget >= 80000 else ('품격 있는 특선 상차림' if lunch_budget >= 40000 else '어르신 속 편한 정갈한 상차림')} ({r.get('address', '')})",
                 "certBadge": "🏛️ 지자체 지정 으뜸 맛집",
                 "place_url": r.get("place_url", ""),
                 "x": r.get("x"),
@@ -1187,9 +1410,9 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     else:
         # 카카오 API 통신 장애 시 동적 안전 객체 (절대 엉뚱한 타지역 데이터가 나오지 않음)
         rest_list = [
-            {"name": f"{dest_title} 본점 {cuisine} 명가", "phone": "", "menu": f"수제 {cuisine} 특선 정식 (1인 {lunch_budget:,}원대)", "walkingInfo": "주차장 도보 3분 (150m)", "features": f"{dest_title} 대표 어르신 속 편한 으뜸 한상", "certBadge": "🏛️ 지자체 지정 향토 으뜸맛집", "mapUrls": make_map_urls(f"{dest_title} {cuisine} 맛집", region_tag)},
-            {"name": f"{dest_title} 향토 {cuisine} 전문점", "phone": "", "menu": f"어르신 보양 {cuisine} 정식 & 가마솥밥", "walkingInfo": "주차장 도보 4분 (200m)", "features": f"소화에 좋은 {dest_title} 현지 정갈한 반찬", "certBadge": "🏛️ 지자체 모범음식점 인증업소", "mapUrls": make_map_urls(f"{dest_title} 맛집", region_tag)},
-            {"name": f"{dest_title} 수제 {cuisine} 밥상", "phone": "", "menu": f"정갈한 수라상 {cuisine} 한상차림", "walkingInfo": "주차장 도보 2분 (100m)", "features": f"정갈하고 담백한 {dest_title} 대표 맛집", "certBadge": "🏛️ 대표 향토음식점", "mapUrls": make_map_urls(f"{dest_title} 식당", region_tag)}
+            {"name": f"{dest_title} 본점 {cuisine} 명가", "phone": "", "menu": f"수제 {cuisine} {'VIP 럭셔리 코스' if lunch_budget >= 80000 else ('특선 정찬' if lunch_budget >= 40000 else '정식')} (1인 {lunch_budget:,}원대)", "walkingInfo": "주차장 도보 3분 (150m)", "features": f"{dest_title} 대표 {'프라이빗 룸 최고급 한상' if lunch_budget >= 80000 else '어르신 속 편한 으뜸 한상'}", "certBadge": "🏛️ 지자체 지정 향토 으뜸맛집", "mapUrls": make_map_urls(f"{dest_title} {cuisine} 맛집", region_tag)},
+            {"name": f"{dest_title} 향토 {cuisine} 전문점", "phone": "", "menu": f"어르신 {'최상급 특선 보양 요리' if lunch_budget >= 80000 else '보양 정식 & 가마솥밥'} (1인 {lunch_budget:,}원대)", "walkingInfo": "주차장 도보 4분 (200m)", "features": f"소화에 좋은 {dest_title} 현지 정갈한 반찬", "certBadge": "🏛️ 지자체 모범음식점 인증업소", "mapUrls": make_map_urls(f"{dest_title} 맛집", region_tag)},
+            {"name": f"{dest_title} 수제 {cuisine} 밥상", "phone": "", "menu": f"정갈한 수라상 {cuisine} {'VIP 코스' if lunch_budget >= 80000 else '한상차림'} (1인 {lunch_budget:,}원대)", "walkingInfo": "주차장 도보 2분 (100m)", "features": f"정갈하고 담백한 {dest_title} 대표 맛집", "certBadge": "🏛️ 대표 향토음식점", "mapUrls": make_map_urls(f"{dest_title} 식당", region_tag)}
         ]
 
     # 관심사별 10:30 메인 일정 동적 커스텀
@@ -1389,8 +1612,8 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         "mapUrls": make_map_urls(parking_name)
     }
 
-    # 카카오 모빌리티 실시간 주행 정보 조회 (출발: 성남시 분당구 ➔ 목적지)
-    driving_info = fetch_kakao_driving_info(dest_title)
+    # 카카오 모빌리티 실시간 주행 정보 조회 (출발: 성남시 {origin_district} ➔ 목적지)
+    driving_info = fetch_kakao_driving_info(dest_title, origin_district=origin_district)
     drive_min = driving_info.get("duration_min", 45)
     drive_dist_str = driving_info.get("distance_str", "약 30km")
     drive_dur_str = driving_info.get("duration_str", "약 45분")
@@ -1421,8 +1644,8 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     timeline_items = [
         {
             "time": f"09:30 ~ {arr_time_str}",
-            "title": f"🚘 [차량 이동] 성남시 분당구 ➔ {dest_title} (카카오내비 실시간 {drive_dur_str} 소요)",
-            "description": f"09:30에 성남시 분당구에서 출발하여 {dest_title}(으)로 이동합니다. (카카오 모빌리티 실시간 교통 반영 예상 {drive_dur_str} 소요, 편도 {drive_dist_str}, {arr_time_str} 현지 도착 예정)",
+            "title": f"🚘 [차량 이동] {origin_label} ➔ {dest_title} (카카오내비 실시간 {drive_dur_str} 소요)",
+            "description": f"09:30에 {origin_label}에서 출발하여 {dest_title}(으)로 이동합니다. (카카오 모빌리티 실시간 교통 반영 예상 {drive_dur_str} 소요, 편도 {drive_dist_str}, {arr_time_str} 현지 도착 예정)",
             "walkingInfo": f"전기차 주행 ({drive_dur_str}, 편도 {drive_dist_str})",
             "mapUrls": make_map_urls(dest_title),
             "parkingLot": main_parking_obj,
@@ -1562,16 +1785,16 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
         
         # 직전 일정이 메인 명소(dest_title)와 다른 곳으로 이동한 경우, 식당 및 카페를 직전 일정(s_name) 인근으로 실시간 재수집!
         if clean_place_name(s_name) != clean_place_name(dest_title):
-            lunch_rag = fetch_kakao_nearby_places(s_name, cuisine, radius=2000)
+            lunch_rag = fetch_kakao_nearby_places(s_name, cuisine, radius=2000, lunch_budget=lunch_budget)
             if lunch_rag and lunch_rag.get("restaurants") and len(lunch_rag["restaurants"]) >= 1:
                 lunch_location_tag = lunch_rag.get("region_tag", region_tag)
                 rest_list = [
                     {
                         "name": r["name"],
                         "phone": r.get("phone", ""),
-                        "menu": f"[{lunch_location_tag}] {cuisine} 추천 정식 (1인 {lunch_budget:,}원대)",
+                        "menu": f"[{lunch_location_tag}] {cuisine} {'최고급 VIP 특선 코스 / 1++ 암소 한우' if lunch_budget >= 80000 else ('프리미엄 특선 정찬' if lunch_budget >= 40000 else '추천 정식')} (1인 {lunch_budget:,}원대)",
                         "walkingInfo": f"현지 {r.get('distance', '도보 3분')}",
-                        "features": f"어르신 속 편한 정갈한 {r.get('category', cuisine)} 상차림 ({r.get('address', '')})",
+                        "features": f"{'프라이빗 룸 구비 및 품격 있는 VIP 서비스' if lunch_budget >= 80000 else ('품격 있는 특선 상차림' if lunch_budget >= 40000 else '어르신 속 편한 정갈한 상차림')} ({r.get('address', '')})",
                         "certBadge": "🏛️ 지자체 지정 으뜸 맛집",
                         "place_url": r.get("place_url", ""),
                         "x": r.get("x"),
@@ -1604,8 +1827,8 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     # 점심 식사 일정 (오전 직전 일정 장소 인근 도보/근거리 식당 매칭)
     timeline_items.append({
         "time": "12:30 ~ 13:30",
-        "title": f"🍱 [점심 식사] '{rep_rest}' 등 {lunch_location_name} 추천 맛집 3선",
-        "description": f"12:30 점심 식사 시간입니다. {lunch_location_name} 도보권 대표 맛집 '{rep_rest}' 등 아래 [🍱 지자체 추천 {cuisine} 식당 3선] 중 마음에 드는 식당으로 이동하세요. (1인 예산 약 {lunch_budget:,}원)",
+        "title": "🍱 [점심식사]",
+        "description": "",
         "walkingInfo": f"{lunch_location_name} 도보 1~3분",
         "mapUrls": rest_list[0]["mapUrls"],
         "isVerificationNeeded": True,
@@ -1615,12 +1838,12 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     # 14:00 디저트 및 뷰카페 일정 (식당 바로 앞 도보권 카페)
     timeline_items.append({
         "time": "14:00 ~ 15:15",
-        "title": f"☕ [디저트 & 뷰카페 휴식] '{rep_cafe}' 등 식당 도보권 카페 3선",
-        "description": f"14:00 디저트 및 힐링 휴식 시간입니다. 점심 식당 바로 앞(도보 2~3분)에 위치한 '{rep_cafe}' 등 아래 [☕ 추천 카페 3선] 중 전망 좋고 쉬기 편한 창가 소파석 카페에서 담소를 나누세요.",
+        "title": "☕ [디저트&뷰카페휴식]",
+        "description": "",
         "walkingInfo": f"{cafe_list[0].get('walkingInfo', '식당에서 도보 2~3분')}",
         "mapUrls": cafe_list[0]["mapUrls"],
         "isVerificationNeeded": True,
-        "note": "주말 14시 이후 소파/창가 좌석 여유 있게 이용"
+        "note": "방문 전 영업 여부 및 좌석을 확인하세요."
     })
 
     # 2. 두 번째 보조 일정 (관심사 2개 이상 선택 시: 오후 이동 100% 분리 + 오후 탐방 100% 분리)
@@ -1702,10 +1925,10 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     # 귀가 이동 타임라인
     timeline_items.append({
         "time": f"16:30 ~ {ret_arr_str}",
-        "title": f"🚘 [분당 귀가 이동] 현지 출발 ➔ 성남시 분당구 (카카오내비 실시간 {drive_dur_str} 소요)",
-        "description": f"16:30에 현지에서 출발하여 성남시 분당구로 여유롭게 귀가합니다. (카카오 모빌리티 실시간 교통 반영 {drive_dur_str} 소요, 편도 {drive_dist_str}, {ret_arr_str} 분당 안심 도착 예정)",
+        "title": f"🚘 [{origin_district} 귀가 이동] 현지 출발 ➔ {origin_label} (카카오내비 실시간 {drive_dur_str} 소요)",
+        "description": f"16:30에 현지에서 출발하여 {origin_label}로 여유롭게 귀가합니다. (카카오 모빌리티 실시간 교통 반영 {drive_dur_str} 소요, 편도 {drive_dist_str}, {ret_arr_str} {origin_district} 안심 도착 예정)",
         "walkingInfo": f"전기차 자가 주행 ({drive_dur_str}, 편도 {drive_dist_str})",
-        "mapUrls": make_map_urls("성남시 분당구청"),
+        "mapUrls": make_map_urls(origin_name),
         "isVerificationNeeded": False
     })
 
@@ -1750,7 +1973,8 @@ def generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, c
     round_dist_km = round(drive_dist_km * 2, 1)
 
     ret = {
-        "overview": f"성남시 분당구 출발 기준, [{dest_title}](으)로 떠나는 여유로운 당일치기 힐링 여행입니다.",
+        "overview": f"{origin_label} 출발 기준, [{dest_title}](으)로 떠나는 여유로운 당일치기 힐링 여행입니다.",
+        "roadmap": generate_bracket_roadmap(origin_district, timeline_items),
         "restaurantCandidates": rest_list,
         "cafeCandidates": cafe_list,
         "timeline": timeline_items,
@@ -1868,43 +2092,39 @@ def view_trip_page(trip_id):
 # --- API 라우트 ---
 @app.route("/api/verify-password", methods=["POST"])
 def verify_password():
-    """비밀번호 검증 API"""
-    data = request.get_json() or {}
-    password = str(data.get("password", "")).strip()
-    if password == APP_PASSWORD:
-        return jsonify({"success": True})
-    return jsonify({"success": False, "message": "비밀번호가 올바르지 않습니다."}), 401
+    """비밀번호 검증 API (공개 전환으로 항상 성공 반환)"""
+    return jsonify({"success": True})
 
 @app.route("/api/generate-trip", methods=["POST"])
 def generate_trip():
-    """일정 생성 요청 API"""
+    """일정 생성 요청 API (비밀번호 없이 즉시 생성)"""
     data = request.get_json() or {}
     
-    # 1. 비밀번호 재검증 (보안)
-    password = str(data.get("password", "")).strip()
-    if password != APP_PASSWORD:
-        return jsonify({"success": False, "message": "비밀번호 인증이 필요합니다."}), 401
-    
-    # 2. 입력 데이터 추출
+    # 1. 입력 데이터 추출
+    origin_district = data.get("originDistrict", "분당구").strip() or "분당구"
+    if origin_district not in DISTRICT_ORIGIN_MAP:
+        origin_district = "분당구"
+        
     destination = data.get("destination", "추천").strip() or "추천"
     cuisine_type = data.get("cuisineType", "한식").strip() or "한식"
-    lunch_budget = int(data.get("lunchBudgetPerPerson", 20000))
+    lunch_budget = int(data.get("lunchBudgetPerPerson", 35000))
     interests = data.get("interests", ["자연/둘레길"])
     companion_count = int(data.get("companionCount", 2))
     
-    # 3. 일정 데이터 생성 (LLM or Mock) - 전국 모든 지역 지원
-    trip_output = generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, companion_count)
+    # 2. 일정 데이터 생성 (LLM or Mock) - 전국 모든 지역 및 성남시 3개 구 출발 지원
+    trip_output = generate_trip_with_llm(destination, lunch_budget, cuisine_type, interests, companion_count, origin_district=origin_district)
     
     # 생성된 최종 목적지 이름 파악
     chosen_dest = trip_output.get("targetPlace", destination) if isinstance(trip_output, dict) else destination
     display_dest = f"알아서 추천 ({chosen_dest})" if destination in ["추천", "알아서 추천", ""] else destination
 
-    # 4. 고유 ID 생성 및 데이터 저장
+    # 3. 고유 ID 생성 및 데이터 저장
     trip_id = str(uuid.uuid4())[:8]  # 읽기 쉬운 8자리 UUID
     trip_record = {
         "id": trip_id,
         "createdAt": datetime.now().strftime("%Y-%m-%d"),
         "input": {
+            "originDistrict": origin_district,
             "destination": display_dest,
             "cuisineType": cuisine_type,
             "lunchBudgetPerPerson": lunch_budget,

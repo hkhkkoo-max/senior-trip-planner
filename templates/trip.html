@@ -6,22 +6,22 @@
     <title>당일치기 여행 일정 결과</title>
     
     <!-- PWA (Progressive Web App) 설정 -->
-    <link rel="manifest" href="/manifest.json?v=20260829_1230">
-    <meta name="theme-color" content="#0ea5e9">
+    <link rel="manifest" href="/manifest.json?v=20260830_1630">
+    <meta name="theme-color" content="#854D0E">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="당일치기도우미">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/app-icon-192.png') }}?v=20260829_1230">
-    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/app-icon-192.png') }}?v=20260829_1230">
-    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/app-icon-512.png') }}?v=20260829_1230">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/app-icon-192.png') }}?v=20260830_1630">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/app-icon-192.png') }}?v=20260830_1630">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/app-icon-512.png') }}?v=20260830_1630">
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260829_0056">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260830_1655">
     <!-- marked.js CDN for Markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="app-container">
-        <!-- 헤더 및 공유 제어 -->
+        <!-- 헤더 및 뒤로가기 -->
         <header class="header no-print">
             <a href="/" class="back-link">⬅️ 새 일정 만들기</a>
             <h1 class="title">🚗 당일치기 여행 추천 일정</h1>
@@ -33,16 +33,11 @@
             <div class="overview-box">
                 <h2>📌 여행 한 줄 요약</h2>
                 <p class="overview-text">{{ trip.output.overview }}</p>
-                
-                <div class="input-tags">
-                    <span class="tag">목적지: {{ trip.input.destination }}</span>
-                    {% if trip.input.cuisineType %}
-                    <span class="tag">음식 종류: {{ trip.input.cuisineType }}</span>
-                    {% endif %}
-                    <span class="tag">1인 식비: {% if trip.input.lunchBudgetPerPerson <= 10000 %}1만원대{% elif trip.input.lunchBudgetPerPerson == 20000 %}2만원대{% else %}3만원대{% endif %}</span>
-                    <span class="tag">인원: {{ trip.input.companionCount }}명</span>
-                    <span class="tag">이동: 전기차 자가운전</span>
+                {% if trip.output.roadmap %}
+                <div class="roadmap-flow-box">
+                    <p class="roadmap-flow-text">📍 {{ trip.output.roadmap }}</p>
                 </div>
+                {% endif %}
             </div>
 
             {% if trip.output.unmatchedInterestsNote %}
@@ -65,9 +60,11 @@
                         <div class="time-badge">{{ item.time }}</div>
                         <div class="timeline-content">
                             <h4>{{ item.title }}</h4>
+                            {% if item.description and not is_lunch and not is_cafe %}
                             <p class="item-desc">{{ item.description }}</p>
+                            {% endif %}
                             
-                            {% if item.walkingInfo %}
+                            {% if item.walkingInfo and not is_move and not is_lunch and not is_cafe %}
                             <div class="walking-badge">
                                 🚶‍♂️ <strong>이동안내</strong>: {{ item.walkingInfo }}
                             </div>
@@ -81,16 +78,16 @@
                             </div>
                             {% endif %}
 
-                            {% if item.isVerificationNeeded %}
+                            {% if item.isVerificationNeeded and not is_lunch and not is_cafe %}
                             <div class="alert-badge">
-                                ⚠️ <strong>[방문 전 확인 필요]</strong> {{ item.note if item.note else "메뉴 가격/영업시간을 전화로 확인하세요." }}
+                                ⚠️ <strong>[방문 전 확인 필요]</strong> {{ item.note if item.note else "영업시간 및 휴무일을 미리 전화로 확인하세요." }}
                             </div>
                             {% endif %}
                         </div>
                     </div>
                     {% if item.placeKeyword %}{% set prev_keyword.value = item.placeKeyword %}{% endif %}
 
-                    <!-- 이동 타임라인 항목 직속 주차장 & EV 충전소 인라인 카드 배치 (1:1 완전 매칭) -->
+                    <!-- 이동 타임라인 항목 직속 주차장 & EV 충전소 인라인 카드 배치 -->
                     {% set parking = item.parkingLot %}
                     {% set ev = trip.output.routePlan.evChargingStation if (loop.index0 < 2 and parking) else None %}
                     {% if parking or ev %}
@@ -131,18 +128,23 @@
                     </div>
                     {% endif %}
 
-                    <!-- 12:30 점심 식사 일정 바로 아래에 추천 식당 3선 카드 배치 -->
+                    <!-- 12:30 점심 식사 일정 바로 아래에 추천 식당 3선 카드 배치 (컴팩트 선택 박스) -->
                     {% if (item.time == "12:30" or "점심" in item.title) and trip.output.restaurantCandidates %}
                     <div class="restaurant-inline-box">
-                        <h4 class="rest-box-title">🍱 [{{ trip.input.cuisineType if trip.input.cuisineType else '한식' }}] 추천 식당 3선: {{ trip.output.restaurantCandidates[0].name }} 외 2곳 (1인 예산 약 {% if trip.input.lunchBudgetPerPerson <= 10000 %}1만원대{% elif trip.input.lunchBudgetPerPerson == 20000 %}2만원대{% else %}3만원대{% endif %})</h4>
-                        <p class="rest-box-sub">아래 3가지 식당 중 취향에 맞는 곳으로 방문하세요. (전화 연결 및 카카오맵 검색/정보)</p>
+                        <div class="selection-box-header">
+                            <h4 class="rest-box-title">🍱 [점심식사] 추천 맛집 3선</h4>
+                            <span class="selection-tag highlight-badge">👉 3곳 중 1곳 선택</span>
+                        </div>
                         
                         <div class="restaurant-grid">
                             {% for rest in trip.output.restaurantCandidates %}
-                            <div class="restaurant-card">
+                            <div class="restaurant-card compact-card">
+                                <div class="card-top-badge">
+                                    <span class="choice-badge">후보 {{ loop.index }}</span>
+                                </div>
                                 <!-- 1번째 줄: 상호명 (좌) & 전화번호/전화연결 (우) -->
                                 <div class="rest-header">
-                                    <h4>{{ loop.index }}. {{ rest.name }}</h4>
+                                    <h4>{{ rest.name }}</h4>
                                     {% if rest.phone and 'XXX' not in rest.phone and rest.phone.strip() %}
                                     <div class="phone-box">
                                         <span class="phone-number">📞 {{ rest.phone }}</span>
@@ -152,18 +154,18 @@
                                 </div>
 
                                 <!-- 2번째 줄: 지자체 인증 (좌) & 카카오맵 검색 (우) 나란히 배치 -->
-                                <div class="rest-sub-row no-print" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                                <div class="rest-sub-row no-print">
                                     {% if rest.certBadge %}
-                                    <div class="cert-badge" style="margin: 0;">
-                                        🏛️ <strong>지자체 인증</strong>: {{ rest.certBadge }}
+                                    <div class="cert-badge">
+                                        🏛️ {{ rest.certBadge }}
                                     </div>
                                     {% else %}
                                     <div></div>
                                     {% endif %}
 
                                     {% if rest.mapUrls %}
-                                    <div class="map-btn-group no-print" style="margin: 0;">
-                                        <a href="{{ rest.mapUrls.kakao_route if rest.mapUrls.kakao_route else rest.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao" style="padding: 6px 14px; font-size: 14px; font-weight: 800; border-radius: 20px; text-decoration: none; display: inline-flex; align-items: center;">
+                                    <div class="map-btn-group no-print">
+                                        <a href="{{ rest.mapUrls.kakao_route if rest.mapUrls.kakao_route else rest.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
                                             🗺️ 카카오맵 검색
                                         </a>
                                     </div>
@@ -180,18 +182,23 @@
                     </div>
                     {% endif %}
 
-                    <!-- 14:00/14:30 카페 휴식 일정 바로 아래에 추천 카페 3선 카드 배치 (장소 이동 타임라인 항목 중복 출력 방지) -->
-                    {% if ("디저트 & 뷰카페" in item.title or "14:00" in item.time or "14:30" in item.time) and not ("장소 이동" in item.title or "차량 이동" in item.title or "오후 장소 이동" in item.title) and trip.output.cafeCandidates %}
+                    <!-- 14:00/14:30 카페 휴식 일정 바로 아래에 추천 카페 3선 카드 배치 (컴팩트 선택 박스) -->
+                    {% if ("디저트" in item.title or "14:00" in item.time or "14:30" in item.time) and not ("장소 이동" in item.title or "차량 이동" in item.title or "오후 장소 이동" in item.title) and trip.output.cafeCandidates %}
                     <div class="cafe-inline-box">
-                        <h4 class="cafe-box-title">☕ [식당 도보권] 추천 카페 3선: {{ trip.output.cafeCandidates[0].name }} 외 2곳</h4>
-                        <p class="cafe-box-sub">점심 식사 후 도보 1~3분 거리에서 편안하게 담소를 나눌 수 있는 카페입니다.</p>
+                        <div class="selection-box-header">
+                            <h4 class="cafe-box-title">☕ [디저트&뷰카페휴식] 추천 카페 3선</h4>
+                            <span class="selection-tag cafe-tag highlight-badge-cafe">👉 3곳 중 1곳 선택</span>
+                        </div>
                         
                         <div class="cafe-grid">
                             {% for cafe in trip.output.cafeCandidates %}
-                            <div class="cafe-card">
+                            <div class="cafe-card compact-card">
+                                <div class="card-top-badge">
+                                    <span class="choice-badge cafe-choice">후보 {{ loop.index }}</span>
+                                </div>
                                 <!-- 1번째 줄: 상호명 (좌) & 전화번호/전화연결 (우) -->
                                 <div class="cafe-header">
-                                    <h4>{{ loop.index }}. {{ cafe.name }}</h4>
+                                    <h4>{{ cafe.name }}</h4>
                                     {% if cafe.phone and 'XXX' not in cafe.phone and cafe.phone.strip() %}
                                     <div class="phone-box">
                                         <span class="phone-number">📞 {{ cafe.phone }}</span>
@@ -201,18 +208,18 @@
                                 </div>
 
                                 <!-- 2번째 줄: 지자체/관광 인증 (좌) & 카카오맵 검색 (우) 나란히 배치 -->
-                                <div class="cafe-sub-row no-print" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+                                <div class="cafe-sub-row no-print">
                                     {% if cafe.certBadge %}
-                                    <div class="cert-badge" style="margin: 0;">
-                                        🏛️ <strong>지자체/관광 인증</strong>: {{ cafe.certBadge }}
+                                    <div class="cert-badge">
+                                        🏛️ {{ cafe.certBadge }}
                                     </div>
                                     {% else %}
                                     <div></div>
                                     {% endif %}
 
                                     {% if cafe.mapUrls %}
-                                    <div class="map-btn-group no-print" style="margin: 0;">
-                                        <a href="{{ cafe.mapUrls.kakao_route if cafe.mapUrls.kakao_route else cafe.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao" style="padding: 6px 14px; font-size: 14px; font-weight: 800; border-radius: 20px; text-decoration: none; display: inline-flex; align-items: center;">
+                                    <div class="map-btn-group no-print">
+                                        <a href="{{ cafe.mapUrls.kakao_route if cafe.mapUrls.kakao_route else cafe.mapUrls.kakao }}" target="_blank" class="btn-map btn-kakao">
                                             🗺️ 카카오맵 검색
                                         </a>
                                     </div>
@@ -232,28 +239,6 @@
                     {% endfor %}
                 </div>
             </section>
-
-            <!-- 예상 비용 합계 -->
-            <section class="section-block">
-                <h3 class="section-title">💰 예상 비용 안내 (점심 식비 & 카페 포함)</h3>
-                <div class="cost-card">
-                    <div class="total-cost">
-                        <span>예상 비용 ({{ trip.input.companionCount }}인 기준):</span>
-                        <strong class="price">{{ "{:,}".format(trip.output.estimatedCost.total) }}원</strong>
-                    </div>
-                    <ul class="cost-list">
-                        {% for detail in trip.output.estimatedCost.details %}
-                        <li>
-                            <span>{{ detail.item }}</span>
-                            <strong>{{ "{:,}".format(detail.cost) }}원</strong>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    <p class="cost-note">※ 숙박비 및 주유비는 제외된 당일치기 순수 점심 식비/디저트/체험 비용입니다.</p>
-                </div>
-            </section>
-
-
 
             <!-- 하단 액션 버튼 (인쇄 및 PDF 저장) -->
             <div class="action-bar no-print">

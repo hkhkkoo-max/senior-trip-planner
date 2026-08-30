@@ -1,62 +1,24 @@
 // 폼 전역 상태 관리
-let currentStep = 0;
-let userPassword = "";
+let currentStep = 1;
+let selectedOriginDistrict = "분당구";
 let selectedDestination = "추천";
 let selectedCuisine = "한식";
-let selectedLunchBudget = 10000;
-let selectedInterests = [];
+let selectedInterests = ["자연/둘레길"];
 let companionCount = 2;
 
-// [STEP 0] 비밀번호 확인
-async function checkPassword() {
-    const passwordInput = document.getElementById("inputPassword").value.trim();
-    const errorDiv = document.getElementById("passwordError");
-    errorDiv.innerText = "";
-
-    if (!passwordInput) {
-        errorDiv.innerText = "비밀번호를 입력해 주세요.";
-        return;
+// [STEP 1] 성남시 출발 구 선택
+function selectOriginDistrict(district, btnElement) {
+    selectedOriginDistrict = district;
+    document.querySelectorAll("#step1 .option-btn").forEach(btn => btn.classList.remove("active"));
+    if (btnElement) btnElement.classList.add("active");
+    
+    // 2단계의 추천 서브 텍스트 실시간 반영
+    const recSubText = document.getElementById("recommendSubText");
+    if (recSubText) {
+        recSubText.innerText = `${selectedOriginDistrict} 출발 어르신 선호도 1위 명소로 추천`;
     }
-
-    try {
-        const response = await fetch("/api/verify-password", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ password: passwordInput })
-        });
-
-        let data;
-        try {
-            data = await response.json();
-        } catch (e) {
-            errorDiv.innerText = "서버 응답 형식 오류가 발생했습니다. (Flask 서버 로그 확인 필요)";
-            return;
-        }
-
-        if (response.ok && data.success) {
-            userPassword = passwordInput;
-            document.getElementById("progressContainer").style.display = "block";
-            nextStep(1);
-        } else {
-            errorDiv.innerText = data.message || "비밀번호가 올바르지 않습니다.";
-        }
-    } catch (err) {
-        errorDiv.innerText = "서버 통신 중 오류가 발생했습니다. (Flask 서버가 실행 중인지 확인해 주세요)";
-    }
+    console.log("선택된 출발 구:", selectedOriginDistrict);
 }
-
-// URL 전용 자동 비밀번호 인증 처리 (?pass=4775 또는 ?key=4775 접속 시 자동 통과)
-window.addEventListener("DOMContentLoaded", () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const passParam = urlParams.get("pass") || urlParams.get("key");
-    if (passParam) {
-        const passInput = document.getElementById("inputPassword");
-        if (passInput) {
-            passInput.value = passParam;
-            checkPassword();
-        }
-    }
-});
 
 // 단계 이동 제어
 function showStep(step) {
@@ -70,27 +32,34 @@ function showStep(step) {
     const mainHeader = document.getElementById("mainHeader");
     const progressContainer = document.getElementById("progressContainer");
 
-    if (step === 0) {
+    // 1단계(첫 화면)에서는 히어로 일러스트 배너 노출, 2단계 이후부터는 콤팩트 모드
+    if (step === 1) {
         if (heroBanner) heroBanner.style.display = "flex";
         if (mainHeader) mainHeader.classList.remove("header-step-mode");
-        if (progressContainer) progressContainer.style.display = "none";
     } else {
         if (heroBanner) heroBanner.style.display = "none";
         if (mainHeader) mainHeader.classList.add("header-step-mode");
-        if (progressContainer) progressContainer.style.display = "block";
     }
 
-    // 진행 상황 바 업데이트 (총 5단계)
-    if (step >= 1 && step <= 5) {
-        currentStep = step;
-        const progressPercent = (step / 5) * 100;
-        document.getElementById("progressBar").style.width = `${progressPercent}%`;
-        document.getElementById("progressText").innerText = `${step}단계 / 5단계`;
+    if (progressContainer) {
+        progressContainer.style.display = (step === "Loading") ? "none" : "block";
     }
+
+    // 진행 상황 바 업데이트 (총 4단계)
+    if (typeof step === "number" && step >= 1 && step <= 4) {
+        currentStep = step;
+        const progressPercent = Math.round((step / 4) * 100);
+        const bar = document.getElementById("progressBar");
+        const txt = document.getElementById("progressText");
+        if (bar) bar.style.width = `${progressPercent}%`;
+        if (txt) txt.innerText = `${step}단계 / 4단계`;
+    }
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function nextStep(step) {
-    if (currentStep === 1 && step === 2) {
+    if (currentStep === 2 && step === 3) {
         const customInput = document.getElementById("customDest");
         const customVal = customInput ? customInput.value.trim() : "";
         const targetDest = customVal || selectedDestination;
@@ -105,7 +74,7 @@ function prevStep(step) {
     showStep(step);
 }
 
-// [STEP 1] 목적지 선택
+// [STEP 2] 목적지 선택
 function selectDestination(dest, btnElement) {
     const customInput = document.getElementById("customDest");
     const val = customInput ? customInput.value.trim() : "";
@@ -114,7 +83,7 @@ function selectDestination(dest, btnElement) {
     } else {
         selectedDestination = "추천";
     }
-    document.querySelectorAll("#step1 .option-btn").forEach(btn => btn.classList.remove("active"));
+    document.querySelectorAll("#step2 .option-btn").forEach(btn => btn.classList.remove("active"));
     if (btnElement) btnElement.classList.add("active");
     console.log("선택된 목적지:", selectedDestination);
 }
@@ -129,19 +98,12 @@ function onCustomDestInput(inputElement) {
     console.log("입력된 목적지:", selectedDestination);
 }
 
-// [STEP 2] 음식 종류(한식/양식/일식/중식) 선택
+// [STEP 3] 음식 종류(한식/양식/일식/중식) 선택
 function selectCuisine(cuisine, btnElement) {
     selectedCuisine = cuisine;
-    document.querySelectorAll("#step2 .option-btn").forEach(btn => btn.classList.remove("active"));
-    btnElement.classList.add("active");
-    console.log("선택된 음식 종류:", selectedCuisine);
-}
-
-// [STEP 3] 점심 예산 선택
-function selectBudget(budget, btnElement) {
-    selectedLunchBudget = budget;
     document.querySelectorAll("#step3 .option-btn").forEach(btn => btn.classList.remove("active"));
     btnElement.classList.add("active");
+    console.log("선택된 음식 종류:", selectedCuisine);
 }
 
 // [STEP 4] 관심사 토글
@@ -158,14 +120,7 @@ function toggleInterest(checkboxElement) {
         cardLabel.classList.remove("checked");
         selectedInterests = selectedInterests.filter(item => item !== value);
     }
-}
-
-// [STEP 5] 동행 인원 조절
-function adjustCompanion(delta) {
-    companionCount += delta;
-    if (companionCount < 1) companionCount = 1;
-    if (companionCount > 10) companionCount = 10;
-    document.getElementById("companionDisplay").innerText = `${companionCount}명`;
+    console.log("선택된 관심사:", selectedInterests);
 }
 
 // [SUBMIT] 여행 일정 생성 요청
@@ -181,12 +136,12 @@ async function submitTripForm() {
     document.getElementById("progressContainer").style.display = "none";
 
     const payload = {
-        password: userPassword,
+        originDistrict: selectedOriginDistrict,
         destination: finalDest,
         cuisineType: selectedCuisine,
-        lunchBudgetPerPerson: selectedLunchBudget,
+        lunchBudgetPerPerson: 35000,
         interests: selectedInterests.length > 0 ? selectedInterests : ["자연/둘레길"],
-        companionCount: companionCount
+        companionCount: 2
     };
 
     console.log("서버 전송 Payload:", payload);
@@ -204,42 +159,13 @@ async function submitTripForm() {
             window.location.href = `/trip/${data.tripId}`;
         } else {
             alert(data.message || "일정 생성 중 오류가 발생했습니다.");
-            showStep(5);
+            showStep(4);
             document.getElementById("progressContainer").style.display = "block";
         }
     } catch (err) {
         alert("서버 연결에 실패했습니다. 다시 시도해 주세요.");
-        showStep(5);
+        showStep(4);
         document.getElementById("progressContainer").style.display = "block";
-    }
-}
-
-// [월간 DB 동기화 업데이트]
-async function updateMonthlyDatabase() {
-    let password = userPassword;
-    if (!password) {
-        password = prompt("월간 지자체 DB 동기화 업데이트를 진행하시겠습니까?\n접속 비밀번호 4자리를 입력해 주세요:");
-    }
-    if (!password) return;
-    
-    try {
-        const response = await fetch("/api/admin/update-database", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ password: password })
-        });
-        const data = await response.json();
-        if (data.success) {
-            alert(data.message);
-            const dbEl = document.getElementById("dbLastUpdated");
-            if (dbEl && data.lastUpdated) {
-                dbEl.textContent = data.lastUpdated;
-            }
-        } else {
-            alert("⚠️ " + (data.message || "업데이트 실패"));
-        }
-    } catch (e) {
-        alert("⚠️ 업데이트 통신 중 오류가 발생했습니다.");
     }
 }
 
@@ -267,7 +193,6 @@ if (btnPwaInstall) {
                 pwaBanner.style.display = "none";
             }
         } else {
-            // iOS Safari 또는 기타 브라우저 안내
             alert("📱 스마트폰 브라우저 메뉴(또는 하단 공유 버튼)에서\n'홈 화면에 추가'를 누르시면 진짜 앱으로 설치됩니다!");
         }
     });

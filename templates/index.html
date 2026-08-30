@@ -6,16 +6,16 @@
     <title>어르신 맞춤 당일치기 여행 도우미</title>
     
     <!-- PWA (Progressive Web App) 설정 -->
-    <link rel="manifest" href="/manifest.json?v=20260829_1230">
-    <meta name="theme-color" content="#0ea5e9">
+    <link rel="manifest" href="/manifest.json?v=20260830_1640">
+    <meta name="theme-color" content="#854D0E">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="당일치기도우미">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/app-icon-192.png') }}?v=20260829_1230">
-    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/app-icon-192.png') }}?v=20260829_1230">
-    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/app-icon-512.png') }}?v=20260829_1230">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/app-icon-192.png') }}?v=20260830_1640">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/app-icon-192.png') }}?v=20260830_1640">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icons/app-icon-512.png') }}?v=20260830_1640">
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260829_0920">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260830_1640">
 </head>
 <body>
     <div class="app-container">
@@ -42,35 +42,53 @@
             </div>
         </div>
 
-        <!-- 진행 상황 바 -->
-        <div class="progress-container" id="progressContainer" style="display: none;">
-            <div class="progress-bar" id="progressBar"></div>
-            <span class="progress-text" id="progressText">1단계 / 5단계</span>
+        <!-- 진행 상황 바 (총 4단계) -->
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar" id="progressBar" style="width: 25%;"></div>
+            <span class="progress-text" id="progressText">1단계 / 4단계</span>
         </div>
 
-        <!-- 메인 카운터/마법사 컨테이너 -->
+        <!-- 메인 마법사 컨테이너 -->
         <main class="wizard-card">
 
-            <!-- [STEP 0] 비밀번호 게이트 -->
-            <section class="step-section active" id="step0">
-                <div class="step-header">
-                    <span class="badge">접속 확인</span>
-                    <h2>비밀번호를 입력해 주세요</h2>
-                    <p class="step-desc">일정 생성을 위해 전달받으신 4자리 암호를 입력해 주세요.</p>
-                </div>
-                <div class="form-group">
-                    <input type="password" id="inputPassword" class="input-large text-center" placeholder="비밀번호 4자리" maxlength="10" inputmode="numeric">
-                </div>
-                <div class="error-msg" id="passwordError"></div>
-                <button class="btn btn-primary btn-block btn-lg" onclick="checkPassword()">비밀번호 확인 ➔</button>
-            </section>
-
-            <!-- [STEP 1] 목적지 선택 -->
-            <section class="step-section" id="step1">
+            <!-- [STEP 1] 성남시 출발 구 선택 -->
+            <section class="step-section active" id="step1">
                 <div class="step-header text-center">
                     <span class="badge">1단계</span>
+                    <h2>어디에서 출발하시나요?</h2>
+                    <p class="step-desc">성남시 내 거주하시거나 출발하시는 구를 선택해 주세요.</p>
+                </div>
+
+                <div class="option-grid columns-3 mb-4">
+                    <button class="option-btn active" onclick="selectOriginDistrict('분당구', this)">
+                        <span class="icon">🏢</span>
+                        <span class="label">분당구</span>
+                        <span class="sub">판교 · 정자 · 서현 · 야탑 · 구미</span>
+                    </button>
+                    <button class="option-btn" onclick="selectOriginDistrict('수정구', this)">
+                        <span class="icon">🌳</span>
+                        <span class="label">수정구</span>
+                        <span class="sub">위례 · 신흥 · 태평 · 고등 · 산성</span>
+                    </button>
+                    <button class="option-btn" onclick="selectOriginDistrict('중원구', this)">
+                        <span class="icon">🏙️</span>
+                        <span class="label">중원구</span>
+                        <span class="sub">성남동 · 상대원 · 금광 · 도촌 · 하대원</span>
+                    </button>
+                </div>
+
+                <div class="step-actions flex-between">
+                    <div></div>
+                    <button class="btn btn-primary btn-lg" onclick="nextStep(2)">다음 질문 ➔</button>
+                </div>
+            </section>
+
+            <!-- [STEP 2] 목적지 선택 -->
+            <section class="step-section" id="step2">
+                <div class="step-header text-center">
+                    <span class="badge">2단계</span>
                     <h2>어디로 떠나고 싶으신가요?</h2>
-                    <p class="step-desc">원하시는 지역(예: 의정부, 가평)을 직접 입력하시거나 '알아서 추천'을 눌러주세요.</p>
+                    <p class="step-desc">원하시는 지역(예: 전주, 가평, 강화)을 직접 입력하시거나 '알아서 추천'을 눌러주세요.</p>
                 </div>
 
                 <div class="step-body" style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
@@ -78,7 +96,7 @@
                         <button class="option-btn active" onclick="selectDestination('추천', this)" style="width: 100%; text-align: center; padding: 20px 16px;">
                             <span class="icon" style="font-size: 2.2rem; display: block; margin-bottom: 6px;">✨</span>
                             <span class="label" style="font-size: 1.35rem; font-weight: 800;">알아서 추천</span>
-                            <span class="sub" style="display: block; margin-top: 4px; font-size: 0.95rem;">분당 출발 어르신 선호도 1위 명소로 추천</span>
+                            <span class="sub" id="recommendSubText" style="display: block; margin-top: 4px; font-size: 0.95rem;">성남 출발 어르신 선호도 1위 명소로 추천</span>
                         </button>
                     </div>
 
@@ -86,7 +104,7 @@
                         <label for="customDest" class="input-label" style="font-weight: 700; font-size: 1.1rem; display: block; margin-bottom: 8px; color: #1e293b;">
                             📍 원하는 지역 입력 (선택사항):
                         </label>
-                        <input type="text" id="customDest" class="input-large" placeholder="예: 가평, 양평, 춘천, 원주, 속초, 강화, 종로 등" oninput="onCustomDestInput(this)" onkeyup="if(event.key==='Enter') nextStep(2);" style="width: 100%; text-align: center; font-size: 1.15rem; padding: 14px; border-radius: 14px; border: 2px solid #cbd5e1;">
+                        <input type="text" id="customDest" class="input-large" placeholder="예: 전주, 경주, 가평, 양평, 춘천, 속초, 강화 등" oninput="onCustomDestInput(this)" onkeyup="if(event.key==='Enter') nextStep(3);" style="width: 100%; text-align: center; font-size: 1.15rem; padding: 14px; border-radius: 14px; border: 2px solid #cbd5e1;">
                         <p class="sub-text mt-2" style="font-size: 0.95rem; color: #64748b; margin-top: 8px; line-height: 1.4; font-weight: 500;">
                             * 전국 어디든 가고 싶으신 지역이나 명소를 적어주시면 어르신 맞춤 당일치기 여행 일정을 세워드립니다. (빈칸 시 자동 추천)
                         </p>
@@ -94,15 +112,15 @@
                 </div>
 
                 <div class="step-actions flex-between" style="margin-top: auto;">
-                    <div></div>
-                    <button class="btn btn-primary btn-lg" onclick="nextStep(2)">다음 질문 ➔</button>
+                    <button class="btn btn-secondary btn-lg" onclick="prevStep(1)">⬅️ 이전</button>
+                    <button class="btn btn-primary btn-lg" onclick="nextStep(3)">다음 질문 ➔</button>
                 </div>
             </section>
 
-            <!-- [STEP 2] 음식 종류(한식/양식/일식/중식) 선택 -->
-            <section class="step-section" id="step2">
+            <!-- [STEP 3] 음식 종류(한식/양식/일식/중식) 선택 -->
+            <section class="step-section" id="step3">
                 <div class="step-header">
-                    <span class="badge">2단계</span>
+                    <span class="badge">3단계</span>
                     <h2>점심으로 어떤 음식(종류)이 당기시나요?</h2>
                     <p class="step-desc">원하시는 메뉴 스타일을 선택해 주세요.</p>
                 </div>
@@ -131,44 +149,12 @@
                 </div>
 
                 <div class="step-actions flex-between">
-                    <button class="btn btn-secondary btn-lg" onclick="prevStep(1)">⬅️ 이전</button>
-                    <button class="btn btn-primary btn-lg" onclick="nextStep(3)">다음 질문 ➔</button>
-                </div>
-            </section>
-
-            <!-- [STEP 3] 1인당 점심 예산 선택 -->
-            <section class="step-section" id="step3">
-                <div class="step-header">
-                    <span class="badge">3단계</span>
-                    <h2>점심 식사 1인당 예산은 얼마로 할까요?</h2>
-                    <p class="step-desc">선택하신 예산대에 맞춰 최적의 식당을 추천해 드립니다.</p>
-                </div>
-
-                <div class="option-grid columns-3">
-                    <button class="option-btn active" onclick="selectBudget(10000, this)">
-                        <span class="icon">🍱</span>
-                        <span class="label">1만원대</span>
-                        <span class="sub">실속 있고 부담 없는 가성비 식사</span>
-                    </button>
-                    <button class="option-btn" onclick="selectBudget(20000, this)">
-                        <span class="icon">🍲</span>
-                        <span class="label">2만원대</span>
-                        <span class="sub">정갈하고 풍성한 식사</span>
-                    </button>
-                    <button class="option-btn" onclick="selectBudget(30000, this)">
-                        <span class="icon">🥩</span>
-                        <span class="label">3만원대</span>
-                        <span class="sub">고급 보양식 및 특선 식사</span>
-                    </button>
-                </div>
-
-                <div class="step-actions flex-between">
                     <button class="btn btn-secondary btn-lg" onclick="prevStep(2)">⬅️ 이전</button>
                     <button class="btn btn-primary btn-lg" onclick="nextStep(4)">다음 질문 ➔</button>
                 </div>
             </section>
 
-            <!-- [STEP 4] 관심사 선택 -->
+            <!-- [STEP 4] 관심사 선택 및 여행 일정 만들기 -->
             <section class="step-section" id="step4">
                 <div class="step-header">
                     <span class="badge">4단계</span>
@@ -177,8 +163,8 @@
                 </div>
 
                 <div class="checkbox-grid">
-                    <label class="check-card">
-                        <input type="checkbox" value="자연/둘레길" onchange="toggleInterest(this)">
+                    <label class="check-card checked">
+                        <input type="checkbox" value="자연/둘레길" checked onchange="toggleInterest(this)">
                         <span class="icon">🌲</span>
                         <span class="label">자연 & 둘레길</span>
                     </label>
@@ -209,34 +195,14 @@
                     </label>
                 </div>
 
-                <div class="step-actions flex-between">
-                    <button class="btn btn-secondary btn-lg" onclick="prevStep(3)">⬅️ 이전</button>
-                    <button class="btn btn-primary btn-lg" onclick="nextStep(5)">다음 질문 ➔</button>
-                </div>
-            </section>
-
-            <!-- [STEP 5] 동행 인원 수 선택 -->
-            <section class="step-section" id="step5">
-                <div class="step-header">
-                    <span class="badge">5단계</span>
-                    <h2>함께 가시는 총 인원은 몇 분이신가요?</h2>
-                    <p class="step-desc">어르신 본인을 포함한 전체 인원수를 알려주세요.</p>
-                </div>
-
-                <div class="counter-box">
-                    <button class="counter-btn" onclick="adjustCompanion(-1)">-</button>
-                    <span class="counter-val" id="companionDisplay">2명</span>
-                    <button class="counter-btn" onclick="adjustCompanion(1)">+</button>
-                </div>
-
                 <!-- 안내 박스 -->
-                <div class="info-notice">
+                <div class="info-notice mt-4">
                     <p>⚡ <strong>이동수단</strong>: 전기차 자가운전 기준 (경로 상 충전소 안내)</p>
                     <p>⏰ <strong>시간</strong>: 오전 9시 이후 출발 당일치기 (숙박 없음)</p>
                 </div>
 
-                <div class="step-actions flex-between">
-                    <button class="btn btn-secondary btn-lg" onclick="prevStep(4)">⬅️ 이전</button>
+                <div class="step-actions flex-between mt-4">
+                    <button class="btn btn-secondary btn-lg" onclick="prevStep(3)">⬅️ 이전</button>
                     <button class="btn btn-success btn-lg btn-glow" onclick="submitTripForm()">✨ 여행 일정 만들기</button>
                 </div>
             </section>
@@ -254,19 +220,20 @@
 
         <!-- [FOOTER] 하단 신뢰성 안내 푸터 -->
         <footer class="app-footer text-center">
-            <p>🏛️ <strong>공식 문화관광 데이터 기반</strong>: 서울관광재단 및 경기관광공사 검증 데이터를 바탕으로 맞춤 일정을 추천합니다.</p>
-            <p style="font-size: 11px; color: #94a3b8;">성남시 분당구 어르신 맞춤 당일치기 여행 도우미</p>
+            <p>🏛️ <strong>공식 문화관광 데이터 기반</strong>: 전국 지자체 및 관광공사 검증 데이터를 바탕으로 맞춤 일정을 추천합니다.</p>
+            <p style="font-size: 11px; color: #94a3b8;">성남시 어르신 맞춤 당일치기 여행 도우미</p>
         </footer>
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}?v=20260829_0920"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=20260830_1640"></script>
     <!-- PWA Service Worker 등록 -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js?v=20260829_5')
+                navigator.serviceWorker.register('/sw.js?v=20260830_1640')
                     .then((reg) => {
                         console.log('[PWA] Service Worker 등록 성공! Scope:', reg.scope);
+                        reg.update();
                     })
                     .catch((err) => {
                         console.log('[PWA] Service Worker 등록 실패:', err);
